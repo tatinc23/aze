@@ -15,7 +15,7 @@
   "include": [
     "index.ts",
     "mcp-env.d.ts",
-    "src/**/*",
+    "src/**/*", "demo/**/*", "test/**/*", "vitest.config.ts",
     "views/**/*",
     "server.ts",
     ".mcp-use/**/*.d.ts"

@@ -4,6 +4,17 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { createx402MCPClient } from "@x402/mcp";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { privateKeyToAccount } from "viem/accounts";
+import { createPublicClient, http, erc20Abi } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
+async function usdcBalance(address: `0x${string}`): Promise<string> {
+  try {
+    const c = createPublicClient({ chain: baseSepolia, transport: http(process.env.BASE_SEPOLIA_RPC ?? "https://sepolia.base.org") });
+    const v = await c.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [address] });
+    return (Number(v) / 1e6).toString();
+  } catch (e) { return `unknown (${(e as Error).message.slice(0, 80)})`; }
+}
 
 export const DEMO_NOTE = {
   kind: "barrier",
@@ -32,9 +43,11 @@ export async function runDemo(o: { url: string; buyerKey: string; filerAddress?:
   await a.close();
 
   // Agent B: x402-capable client with a test wallet.
+  const buyer = privateKeyToAccount(o.buyerKey as `0x${string}`);
+  log(`B  wallet ${buyer.address} holds ${await usdcBalance(buyer.address)} test USDC`);
   const b = createx402MCPClient({
     name: "agent-b", version: "1.0.0",
-    schemes: [{ network: "eip155:84532", client: new ExactEvmScheme(privateKeyToAccount(o.buyerKey as `0x${string}`)) }],
+    schemes: [{ network: "eip155:84532", client: new ExactEvmScheme(buyer) }],
     autoPayment: true,
     onPaymentRequested: async ({ paymentRequired }: any) => {
       const r = paymentRequired.accepts[0];
@@ -52,7 +65,9 @@ export async function runDemo(o: { url: string; buyerKey: string; filerAddress?:
     const r: any = await b.callTool("notes_unlock", { note_id: target.note_id });
     unlocked = parse(r);
     log(`B  notes_unlock → ${r.isError ? "ERROR " : ""}${JSON.stringify(unlocked).slice(0, 400)}`);
-    log(`B  paid: ${!!r.paymentMade} tx: ${r.paymentResponse?.transaction ?? "-"}${r.paymentResponse?.transaction ? ` (https://sepolia.basescan.org/tx/${r.paymentResponse.transaction})` : ""}`);
+    const pr = r.paymentResponse ?? r._meta?.["x402/payment-response"];
+    const tx = pr?.transaction || "";
+    log(`B  settlement: ${pr?.success ? "SUCCESS" : "FAILED"}${pr?.errorReason ? ` reason=${pr.errorReason}` : ""} payer=${pr?.payer ?? "-"} tx=${tx || "-"}${tx ? ` https://sepolia.basescan.org/tx/${tx}` : ""}`);
   } else log("B  no workaround to unlock");
   await b.close();
 

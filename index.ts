@@ -26,13 +26,21 @@ if (env.PLATFORM_ADDRESS && !building) {
   console.warn("PLATFORM_ADDRESS not set: notes_unlock disabled");
 }
 
+if (!building && store.kind === "supabase") {
+  // Fails loudly if the migration hasn't been applied (missing tables/functions).
+  Promise.all([store.getSettings(), store.stats()])
+    .then(([s]) => console.log(`[store] supabase ok: settings price_micro=${s.price_micro} filer_bps=${s.filer_bps}`))
+    .catch((e) => console.error("[store] supabase NOT ready (apply supabase/migrations/0001_init.sql):", (e as Error).message));
+}
+
 const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY });
 
 if (!building && env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {
   // Lets us prove the live loop from Manufact's runtime logs when the dev container can't reach the server.
   setTimeout(async () => {
     const { runDemo } = await import("./demo/run.js");
-    await runDemo({ url: env.MCP_URL!.replace(/\/$/, "") + (env.MCP_URL!.endsWith("/mcp") ? "" : "/mcp"), buyerKey: env.BUYER_PRIVATE_KEY!, filerAddress: env.DEMO_FILER_ADDRESS, log: (m) => console.log("SELFTEST", m) })
+    // Call this container directly: the public URL may still route to the previous deployment during rollout.
+    await runDemo({ url: `http://localhost:${env.PORT ?? 3000}/mcp`, buyerKey: env.BUYER_PRIVATE_KEY!, filerAddress: env.DEMO_FILER_ADDRESS, log: (m) => console.log("SELFTEST", m) })
       .catch((e) => console.error("SELFTEST failed:", e));
   }, 8000);
 }

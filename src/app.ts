@@ -1,7 +1,7 @@
 // Wires the four MCP tools and the HTTP routes. Logic lives in the units; this file only connects them.
 import { MCPServer } from "mcp-use";
 import { z } from "zod";
-import { KINDS, type Store } from "./types.js";
+import { KINDS, DEFAULT_SETTINGS, type Store } from "./types.js";
 import { gate, normalizeSurface, errorClass } from "./gate/index.js";
 import { attest } from "./identity/index.js";
 import { buildEnvelope, formatUsdc } from "./advise/index.js";
@@ -18,6 +18,9 @@ const json = (data: Record<string, unknown>, isError = false) => ({
 
 export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string }) {
   const { store, paywall } = deps;
+  // A store outage must never crash a tool call or charge anyone: fall back to defaults and answer with a structured error.
+  const settingsOf = () => store.getSettings().catch((e) => { console.error("settings unavailable:", (e as Error).message); return DEFAULT_SETTINGS; });
+  const unavailable = (what: string) => json({ ok: false, code: "store_unavailable", hint: `Could not ${what} right now; nothing was charged. Try again in a minute.` }, true);
   const server = new MCPServer({
     name: "aze",
     title: "Aze: Waze for agents",
@@ -52,14 +55,20 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: Record<string, unknown>) => {
-      const settings = await store.getSettings();
+      const settings = await settingsOf();
       if (!settings.filing_enabled) return json({ ok: false, code: "paused", hint: "Filing is paused by the operator. Try again later." }, true);
       const { proof, ...rest } = input;
       const clean = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
       const result = gate(clean);
       if (!result.ok) return json({ ok: false, code: "rejected_by_privacy_gate", problems: result.problems, hint: "Fix each problem and call notes_file again once." }, true);
       const attestation = await attest(typeof proof === "string" ? proof : undefined);
-      const note = await store.insertNote(result.note, { attestation, payout_address: result.payout_address });
+      let note;
+      try {
+        note = await store.insertNote(result.note, { attestation, payout_address: result.payout_address });
+      } catch (e) {
+        console.error("notes_file store error:", (e as Error).message);
+        return unavailable("save your note");
+      }
       const pct = settings.filer_bps / 100;
       return json({
         ok: true,
@@ -84,7 +93,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     },
     async ({ surface, tool, error }: { surface: string; tool?: string; error?: string }) => {
       const key = normalizeSurface(surface);
-      const settings = await store.getSettings();
+      const settings = await settingsOf();
       try {
         const matches = await store.findMatches({ surface: key, tool: tool?.trim() || null, error_class: error ? errorClass(error) : null }, 5);
         const score = (await store.scores(key))[0] ?? null;
@@ -98,9 +107,10 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
   );
 
   const unlockHandler = async ({ note_id }: { note_id: string }) => {
-    const settings = await store.getSettings();
+    const settings = await settingsOf();
     if (!settings.unlock_enabled) return json({ ok: false, code: "paused", hint: "Unlocks are paused; you were not charged." }, true);
-    const note = await store.getNote(String(note_id));
+    const note = await store.getNote(String(note_id)).catch(() => undefined);
+    if (note === undefined) return unavailable("look up that note");
     if (!note || note.hidden) return json({ ok: false, code: "not_found", hint: "No such note; you were not charged." }, true);
     if (!note.workaround) return json({ ok: false, code: "no_workaround", hint: "This note has no workaround; you were not charged." }, true);
     return json({ ok: true, note_id: note.id, surface: note.surface_display, what: note.what, workaround: note.workaround, label: note.attestation === "verified" ? "VERIFIED" : "UNVERIFIED" });
@@ -128,7 +138,14 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       inputSchema: z.object({ surface: z.string().optional().describe("Public service name; omit for all") }),
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
-    async ({ surface }: { surface?: string }) => json({ scores: await store.scores(surface ? normalizeSurface(surface) : undefined) }),
+    async ({ surface }: { surface?: string }) => {
+      try {
+        return json({ scores: await store.scores(surface ? normalizeSurface(surface) : undefined) });
+      } catch (e) {
+        console.error("notes_score store error:", (e as Error).message);
+        return unavailable("load scores");
+      }
+    },
   );
 
   registerWeb((server as any).app, { store, adminKey: deps.adminKey });

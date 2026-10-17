@@ -6,8 +6,11 @@ import { connectHtml, qrSvg, resolveBaseUrl } from "./connect.js";
 export function registerWeb(app: any, deps: { store: Store; adminKey?: string }) {
   const { store, adminKey } = deps;
   app.get("/health", (c: any) => c.json({ ok: true, store: store.kind }));
-  app.get("/api/stats", async (c: any) => c.json(await store.stats()));
-  app.get("/api/scores", async (c: any) => c.json({ scores: await store.scores() }));
+  const safe = (f: () => Promise<unknown>) => async (c: any) => {
+    try { return c.json(await f()); } catch (e) { console.error("api store error:", (e as Error).message); return c.json({ ok: false, code: "store_unavailable" }, 503); }
+  };
+  app.get("/api/stats", safe(() => store.stats()));
+  app.get("/api/scores", safe(async () => ({ scores: await store.scores() })));
   app.get("/dashboard", (c: any) => c.html(dashboardHtml()));
   // Public base URL: MCP_URL (minus /mcp) if set, else the request origin.
   const base = (c: any) => resolveBaseUrl(process.env.MCP_URL, c.req.url, c.req.header("x-forwarded-proto"));

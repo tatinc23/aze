@@ -26,6 +26,18 @@ export function similarity(a: string, b: string): number {
 
 export const SIMILARITY_THRESHOLD = 0.3;
 
+/** Exactly the CleanNote fields (undefined -> null), so stray input keys (payout_address, proof, ...) are never stored. */
+export function pickNote(n: CleanNote): CleanNote {
+  return {
+    kind: n.kind, category: n.category, surface: n.surface, surface_display: n.surface_display, what: n.what,
+    tool: n.tool ?? null, error_class: n.error_class ?? null, tokens_spent: n.tokens_spent ?? null,
+    dollars_spent: n.dollars_spent ?? null, workaround: n.workaround ?? null, teaser: n.teaser ?? null, wish: n.wish ?? null,
+  };
+}
+
+/** Row limit as a non-negative integer (NaN -> 0), same in both stores. */
+export const clampLimit = (limit: number): number => Math.max(0, Math.floor(limit) || 0);
+
 /** Fold per-(surface, kind) counts into SurfaceScores, sorted by n desc. */
 export function surfaceScores(rows: Array<{ surface: string; surface_display: string; kind: Kind; n: number }>): SurfaceScore[] {
   const by = new Map<string, SurfaceScore>();
@@ -68,7 +80,7 @@ export class MemoryStore implements Store {
 
   async insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null }): Promise<StoredNote> {
     const stored: StoredNote = {
-      ...note,
+      ...pickNote(note),
       id: randomUUID(),
       created_at: new Date().toISOString(),
       attestation: meta.attestation,
@@ -99,7 +111,7 @@ export class MemoryStore implements Store {
     const ranked = this.newestFirst(hits)
       .map((n) => ({ note: structuredClone(n), reports: reports(n) }))
       .sort((a, b) => b.reports - a.reports); // stable: keeps newest-first within equal reports
-    return ranked.slice(0, Math.max(0, limit));
+    return ranked.slice(0, clampLimit(limit));
   }
 
   async logQuery(q: { surface: string; tool: string | null; matched: number }): Promise<void> {

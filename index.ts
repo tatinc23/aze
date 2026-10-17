@@ -1,14 +1,15 @@
 // Entry point (mcp-use convention: export the server; the mcp-use CLI / Manufact starts it).
 import { createStore } from "./src/store/index.js";
 import { createPaywall } from "./src/pay/index.js";
-import { createServer, recordSettledUnlock } from "./src/server.js";
+import { createServer, recordSettledUnlock } from "./src/app.js";
 import { DEFAULT_SETTINGS } from "./src/types.js";
 
 const env = process.env;
+const building = env.MCP_USE_PHASE === "build"; // mcp-use build imports this file; skip network side effects then
 const store = createStore(env);
 
 let paywall: Awaited<ReturnType<typeof createPaywall>> | null = null;
-if (env.PLATFORM_ADDRESS) {
+if (env.PLATFORM_ADDRESS && !building) {
   try {
     const settings = await store.getSettings().catch(() => DEFAULT_SETTINGS);
     paywall = await createPaywall({
@@ -27,7 +28,7 @@ if (env.PLATFORM_ADDRESS) {
 
 const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY });
 
-if (env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {
+if (!building && env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {
   // Lets us prove the live loop from Manufact's runtime logs when the dev container can't reach the server.
   setTimeout(async () => {
     const { runDemo } = await import("./demo/run.js");

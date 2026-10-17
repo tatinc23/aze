@@ -22,6 +22,11 @@ describe("similarity", () => {
     expect(similarity(a, b)).toBeGreaterThan(0.3);
     expect(similarity(a, "permission denied on bucket")).toBeLessThan(0.3);
   });
+  it("matches pg_trgm similarity() exactly (values measured on Postgres 16 pg_trgm)", () => {
+    expect(similarity("timeout waiting for device code", "timed out waiting for device code")).toBeCloseTo(0.8333333, 6);
+    expect(similarity("rate_limit", "rate limit")).toBe(1);
+    expect(similarity("", "")).toBe(0);
+  });
   it("ignores case and punctuation", () => {
     expect(similarity("Rate-Limit: EXCEEDED", "rate limit exceeded")).toBe(1);
   });
@@ -48,6 +53,18 @@ describe("MemoryStore notes", () => {
     ];
     expect(JSON.stringify(outputs)).not.toContain(addr);
     expect(JSON.stringify(outputs)).not.toContain("payout");
+  });
+
+  it("stores only CleanNote fields: stray keys (payout_address, proof) are dropped, undefined becomes null", async () => {
+    const s = new MemoryStore();
+    const sneaky = { ...note(), tool: undefined, payout_address: "0x3333333333333333333333333333333333333333", proof: "secret-proof" };
+    const n = await s.insertNote(sneaky as unknown as CleanNote, unverified);
+    const outputs = [n, await s.getNote(n.id), await s.findMatches({ surface: "inkbox" }, 10)];
+    expect(JSON.stringify(outputs)).not.toMatch(/0x3333|secret-proof|payout|proof/);
+    expect(n.tool).toBeNull();
+    // undefined normalized to null, so it counts as the same report as an explicit null tool
+    await s.insertNote(note({ tool: null }), unverified);
+    expect((await s.findMatches({ surface: "inkbox" }, 10))[0].reports).toBe(2);
   });
 
   it("returns copies, so callers cannot mutate stored notes", async () => {
@@ -109,6 +126,23 @@ describe("MemoryStore.findMatches", () => {
     ]);
     expect(await s.findMatches({ surface: "inkbox" }, 2)).toHaveLength(2);
     expect(await s.findMatches({ surface: "inkbox" }, 0)).toEqual([]);
+    expect(await s.findMatches({ surface: "inkbox" }, 1.9)).toHaveLength(1);
+    expect(await s.findMatches({ surface: "inkbox" }, Number.NaN)).toEqual([]);
+  });
+
+  it("breaks report ties by created_at, not insertion order", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = new MemoryStore();
+      vi.setSystemTime(new Date("2026-10-17T12:00:00Z"));
+      const later = await s.insertNote(note({ what: "later" }), unverified);
+      vi.setSystemTime(new Date("2026-10-17T11:00:00Z"));
+      const earlier = await s.insertNote(note({ error_class: "quota exceeded", what: "earlier" }), unverified);
+      expect((await s.findMatches({ surface: "inkbox" }, 10)).map((x) => x.note.id)).toEqual([later.id, earlier.id]);
+      expect((await s.stats()).recent.map((r) => r.id)).toEqual([later.id, earlier.id]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -1,4 +1,5 @@
 -- Prior Art: initial schema. Only the service role reads/writes (RLS on, no policies).
+-- Functions pin search_path: tables live in public; Supabase may keep pg_trgm in the extensions schema.
 create extension if not exists pg_trgm;
 
 do $$ begin
@@ -86,6 +87,7 @@ alter table settings enable row level security;
 create or replace function find_matches(p_surface text, p_tool text, p_error_class text, p_limit int)
 returns table (note jsonb, reports int)
 language sql stable
+set search_path = public, extensions
 as $$
   select to_jsonb(n) as note,
          (select count(*)::int from notes m
@@ -107,6 +109,7 @@ create or replace function record_unlock(
   p_note_id uuid, p_amount bigint, p_filer bigint, p_platform bigint, p_tx text, p_network text
 ) returns void
 language plpgsql
+set search_path = public, extensions
 as $$
 declare v_unlock bigint;
 begin
@@ -123,6 +126,7 @@ $$;
 create or replace function surface_kind_counts(p_surface text default null)
 returns table (surface text, surface_display text, kind text, n int)
 language sql stable
+set search_path = public, extensions
 as $$
   select n.surface,
          (select d.surface_display from notes d
@@ -139,6 +143,7 @@ $$;
 create or replace function store_stats()
 returns jsonb
 language sql stable
+set search_path = public, extensions
 as $$
   select jsonb_build_object(
     'notes', (select count(*) from notes where hidden = false),

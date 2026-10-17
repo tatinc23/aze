@@ -7,7 +7,7 @@ export function dashboardHtml(): string {
 <div class="k" id="k"></div><h2>Latest notes</h2><ul id="r"></ul>
 <script>
 async function tick(){try{const s=await (await fetch('/api/stats')).json();
-const k=[['Notes',s.notes],['Unverified',s.unverified],['Queries',s.queries],['Unlocks',s.unlocks],['Paid to filers (USDC)',(s.filer_earned_micro/1e6).toFixed(2)]];
+const k=[['Notes',s.notes],['Unverified',s.unverified],['Queries',s.queries],['Unlocks',s.unlocks],['Paid to filers (USDC)',String(s.filer_earned_micro/1e6)]];
 document.getElementById('k').innerHTML=k.map(([a,b])=>'<div><b>'+b+'</b>'+a+'</div>').join('');
 document.getElementById('r').innerHTML=s.recent.map(n=>'<li><b>'+esc(n.surface_display)+'</b> · '+n.kind+' · '+esc(n.what)+(n.has_workaround?' · <i>workaround</i>':'')+' <small>'+n.attestation.toUpperCase()+'</small></li>').join('');}catch(e){}}
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}

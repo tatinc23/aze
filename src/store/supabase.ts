@@ -4,7 +4,7 @@ import {
   type Attestation, type CleanNote, type Kind, type Match, type Settings, type Stats, type Store, type StoredNote,
   type SurfaceScore, type UnlockRecord,
 } from "../types.js";
-import { surfaceScores } from "./memory.js";
+import { clampLimit, pickNote, surfaceScores } from "./memory.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -52,7 +52,7 @@ export class SupabaseStore implements Store {
 
   async insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null }): Promise<StoredNote> {
     const row = check(
-      await this.db.from("notes").insert({ ...note, attestation: meta.attestation }).select("*").single(),
+      await this.db.from("notes").insert({ ...pickNote(note), attestation: meta.attestation }).select("*").single(),
       "insert note",
     ) as Row;
     const stored = toNote(row);
@@ -75,7 +75,7 @@ export class SupabaseStore implements Store {
   async findMatches(q: { surface: string; tool?: string | null; error_class?: string | null }, limit: number): Promise<Match[]> {
     const rows = check(
       await this.db.rpc("find_matches", {
-        p_surface: q.surface, p_tool: q.tool ?? null, p_error_class: q.error_class ?? null, p_limit: Math.max(0, limit),
+        p_surface: q.surface, p_tool: q.tool ?? null, p_error_class: q.error_class ?? null, p_limit: clampLimit(limit),
       }),
       "find_matches",
     ) as Array<{ note: Row; reports: number }> | null;

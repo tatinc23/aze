@@ -35,37 +35,41 @@ const HINTS: Record<string, string> = {
   quote: "Do not paste long quotes (chat or document text); summarize in your own words.",
 };
 
+const TLDS = "com|net|org|edu|gov|io|ai|dev|app|co|sh|so|me|gg|ly|tv|fm|to|run|pro|live|xyz|cloud|tech|site|info|biz|page|" +
+  "us|uk|de|ca|fr|nl|eu|ch|se|es|it|in|au|jp|br|ru|cn";
+
 // Ordered detectors. Each match is masked before the next detector runs, so one identifier yields one problem.
 const DETECTORS: Array<[rule: string, re: RegExp]> = [
   ["secret", new RegExp([
-    String.raw`\bsk-[A-Za-z0-9_-]{8,}`, String.raw`\b[rs]k_(?:live|test)_\w+`, String.raw`\bgh[pousr]_[A-Za-z0-9]{10,}`,
-    String.raw`\bxox[abprs]-[\w-]+`, String.raw`\bAKIA[0-9A-Z]{12,}`, String.raw`\bBearer\s+[\w.~+/-]{8,}=*`,
+    String.raw`\bsk-[A-Za-z0-9_-]{8,}`, String.raw`\b[rsp]k_(?:live|test)_\w+`, String.raw`\bgithub_pat_\w+`, String.raw`\bgh[pousr]_[A-Za-z0-9]{10,}`,
+    String.raw`\bxox[abprs]-[\w-]+`, String.raw`\bAKIA[0-9A-Z]{12,}`, String.raw`\b(?:Bearer|Basic)\s+(?=[\w.~+/-]*[\d_.~+/-])[\w.~+/-]{8,}=*`,
     String.raw`\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]*`,
-    String.raw`\b(?:password|passwd|pwd|api[_-]?key|apikey|secret|client_secret|access_token|auth_token|token)\s*=\s*[^\s&]+`,
-    // long mixed-case + digit run with no spaces: an opaque key
-    String.raw`\b(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*[a-z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{24,}\b`,
+    String.raw`\b[\w-]*?(?:password|passwd|pwd|api[_-]?key|apikey|secret|access[_-]?key|private[_-]?key|token)\s*=\s*[^\s&]+`,
+    String.raw`-----BEGIN [A-Z ]*PRIVATE KEY-----`,
   ].join("|"), "gi")],
   ["email", /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g],
   ["url", new RegExp([
     String.raw`\b[a-z][a-z0-9+.-]*:\/\/\S+`, String.raw`\bwww\.\S+`,
-    String.raw`\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|ai|dev|app|co|sh|so|me|gg|xyz|cloud|tech|site|info|biz|page|us|uk|de|ca)\/\S*`,
-    String.raw`\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:internal|local|corp|lan|intranet)\b`,
+    String.raw`\b(?:[a-z0-9-]+\.)+(?:${TLDS})\/\S*`, String.raw`\b(?:[a-z0-9-]+\.){2,}(?:${TLDS})\b`,
+    String.raw`\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:internal|local|localhost|corp|lan|intranet|home\.arpa)\b`,
   ].join("|"), "gi")],
   ["uuid", /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi],
   ["address", /\b0x[0-9a-f]{16,}\b/gi],
   ["hex", /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{16,}\b/gi],
+  // a long mixed-case + digit run with no spaces: an opaque key (after uuid/0x/hex so those keep their own rule)
+  ["secret", /(?<![\w+\/=-])(?=[\w+\/=-]*[A-Z])(?=[\w+\/=-]*[a-z])(?=[\w+\/=-]*\d)[\w+\/=-]{24,}/g],
   ["ipv4", /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g],
   ["path", new RegExp([
-    String.raw`(?<![\w.:/~-])\/(?:[\w.@-]+\/)+[\w.@-]*`, String.raw`~\/[\w.\/-]*`, String.raw`\b[A-Za-z]:\\\S*`,
-    String.raw`(?<![\w.])\.{1,2}\/[\w.-]+`,
+    String.raw`(?<![\w.:/~-])\/(?:[\w.@-]+\/)+[\w.@-]*`, String.raw`~(?:[A-Za-z_][\w.-]*)?\/[\w.\/-]*`, String.raw`\b[A-Za-z]:[\\\/]\S*`,
+    String.raw`(?<![\w.])\.{1,2}[\\\/][\w.-]+`,
   ].join("|"), "g")],
   ["branch", /\b(?:refs\/(?:heads|tags|remotes)|origin|upstream|feature|feat|bugfix|hotfix|release|claude|dependabot|renovate)\/[\w./-]+/gi],
-  ["digits", /\d{7,}|\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b|\+\d[\d\s-]{7,}\d/g],
+  ["digits", /\d{7,}|\b\d{3}-\d{2}-\d{4}\b|\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b|\+\d[\d\s-]{7,}\d/g],
   // @word, but not npm/model scopes like @x402/mcp or @cf/openai
   ["handle", /(?<![\w.@/])@[A-Za-z0-9_][\w.-]*(?![\w.\/-])/g],
 ];
 
-const PRIVATE_NOUN = /\b(?:my|our)\s+(?:own\s+)?(?:repo|repository|company|org|organization|organisation|client|customer|boss|manager|team)\s+(?:called\s+|named\s+)?["'`]?([A-Za-z0-9][\w.-]*)/gi;
+const PRIVATE_NOUN = /\b(?:my|our)\s+(?:own\s+)?(?:repo|repository|project|company|employer|startup|org|organization|organisation|client|customer|boss|manager|colleague|coworker|cofounder|team)s?\s*[,:]?\s+(called\s+|named\s+|["'`])?([A-Za-z0-9][\w.-]*)/gi;
 const NOT_A_NAME = new Set(
   ("is was are were has had have uses used using and or but nor to in on at for with of from by the a an that which who whom " +
     "where when so because then can could would will should may might must needs needed requires required keeps kept gets got " +
@@ -73,25 +77,35 @@ const NOT_A_NAME = new Set(
     "wanted said says told runs ran owns owner owners settings account accounts lead members member name it this these those as if")
     .split(" "),
 );
-const QUOTED = /"([^"]+)"|“([^”]+)”|‘([^’]+)’|(?<![\w])'([^']+)'(?![\w])/g;
+const QUOTED = /"([^"]+)"|“([^”]+)”|‘([^’]+)’|(?<!\w)'((?:[^']|(?<=\w)'(?=\w))+)'(?!\w)/g;
 
-function scan(field: string, raw: string): GateProblem[] {
-  // NFKC folds look-alikes (fullwidth @, etc.); zero-width characters cannot split an identifier.
-  let text = raw.normalize("NFKC").replace(/[​-‍⁠﻿­]/g, "");
+// What we scan is exactly what we store: NFKC folds look-alikes (fullwidth @, etc.), invisible characters (zero-width,
+// bidi controls, tag characters used for smuggling) are removed so they cannot split an identifier or hide text, and
+// control characters (NUL breaks Postgres text) become spaces. Newlines and tabs are kept.
+function clean(raw: string): string {
+  return raw
+    .normalize("NFKC")
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, "")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, " ");
+}
+
+function scan(field: string, text: string): GateProblem[] {
   const rules = new Set<string>();
   for (const m of text.matchAll(QUOTED)) {
     const inner = m[1] ?? m[2] ?? m[3] ?? m[4] ?? "";
     if (inner.trim().split(/\s+/).length > 12) rules.add("quote");
   }
   for (const [rule, re] of DETECTORS) {
-    if (field === "payout_address" && rule === "address") continue;
     text = text.replace(re, () => {
       rules.add(rule);
       return " ";
     });
   }
+  // A name follows: introduced by called/named/a quote, or name-shaped (capitals, digits, - _ .), not a plain word
+  // ("our client library", "my team is") so ordinary prose passes.
   for (const m of text.matchAll(PRIVATE_NOUN)) {
-    if (!NOT_A_NAME.has(m[1].toLowerCase())) rules.add("private_name");
+    const [, intro, word] = m;
+    if (intro || (/[A-Z0-9_.-]/.test(word) && !NOT_A_NAME.has(word.toLowerCase()))) rules.add("private_name");
   }
   return [...rules].map((rule) => ({ field, rule, hint: HINTS[rule] }));
 }
@@ -114,7 +128,8 @@ export function errorClass(raw: string): string {
 
 function teaser(workaround: string | null): string | null {
   if (workaround === null) return null;
-  return workaround.length <= 80 ? workaround : workaround.slice(0, 79) + "…";
+  const chars = Array.from(workaround);
+  return chars.length <= 80 ? workaround : chars.slice(0, 79).join("") + "…";
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
@@ -143,14 +158,15 @@ export function gate(input: unknown): GateResult {
       continue;
     }
     if (typeof v !== "string") { add(field, "type"); continue; }
-    const t = v.trim();
+    const t = clean(v).trim();
     if (t === "") {
       if ((REQUIRED as readonly string[]).includes(field)) add(field, "required");
       continue;
     }
     if (t.length > LIMITS[field]) add(field, "too_long");
     if (field === "category" && !/^[A-Za-z0-9 _-]+$/.test(t)) add(field, "invalid_chars");
-    problems.push(...scan(field, t));
+    // Oversize text is already rejected; scan a bounded prefix so huge input cannot stall the event loop.
+    problems.push(...scan(field, t.slice(0, 2 * LIMITS[field])));
     text[field] = t;
   }
 

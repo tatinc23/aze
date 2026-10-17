@@ -57,6 +57,6 @@ export async function runDemo(o: { url: string; buyerKey: string; filerAddress?:
   await b.close();
 
   const stats = await fetch(new URL("/api/stats", url)).then((r) => r.json()).catch(() => null);
-  if (stats) log(`dashboard → notes ${stats.notes}, queries ${stats.queries}, unlocks ${stats.unlocks}, paid to filers ${(stats.filer_earned_micro / 1e6).toFixed(2)} USDC (store: ${stats.store})`);
+  if (stats) log(`dashboard → notes ${stats.notes}, queries ${stats.queries}, unlocks ${stats.unlocks}, paid to filers ${String(stats.filer_earned_micro / 1e6)} USDC (store: ${stats.store})`);
   return { filed, envelope: env, unlocked };
 }

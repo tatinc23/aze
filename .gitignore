@@ -10,3 +10,4 @@ raw/
 coverage/
 *.log
 *.pem
+docs/shots/  # local review screenshots with seeded TEST data; never use in pitch materials

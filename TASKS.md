@@ -11,7 +11,7 @@
 - [ ] T8 (local loop green with fake facilitator; live pending) demo/agent.ts e2e on the live URL with a real Base Sepolia tx = PROTOTYPE
 
 ## Session 2 (ultracode point)
-- [ ] T9 notes_score · T10 dashboard · T11 admin kill switch + hide · T12 one-pager blanks + QR · T13 gate hardening
+- [x] T9 notes_score (in T5–T7) · [x] T10 dashboard · [x] T11 kill switch + hide (basic) · [x] T12 /connect + QR · [ ] T13 gate hardening (waiting on Gemini/Grok corpora; also block HTML tags in notes)
 
 ## Blocked on Ken
 - [x] Build repo: tatinc23/aze

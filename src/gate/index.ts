@@ -20,6 +20,7 @@ const HINTS: Record<string, string> = {
   range: "Out of range; tokens_spent is an integer 0..10000000, dollars_spent a number 0..10000.",
   invalid_address: "payout_address must be an EVM address: 0x followed by 40 hex characters.",
   unknown_field: `Remove this field; allowed fields are: ${[...ALLOWED].join(", ")}.`,
+  html: "Remove HTML tags, scripts or event handlers; describe what you saw in plain words.",
   secret: "Remove the secret or token (rotate it if it is real); never include credentials.",
   email: "Remove the email address; describe the role instead (e.g. 'a support inbox').",
   url: "Remove the URL or private host; name the public product or page type instead (e.g. 'the billing settings page').",
@@ -40,6 +41,8 @@ const TLDS = "com|net|org|edu|gov|io|ai|dev|app|co|sh|so|me|gg|ly|tv|fm|to|run|p
 
 // Ordered detectors. Each match is masked before the next detector runs, so one identifier yields one problem.
 const DETECTORS: Array<[rule: string, re: RegExp]> = [
+  // Markup in a note is either an injection attempt or pasted page content; other clients may render it.
+  ["html", /<\/?(?:script|img|svg|iframe|a|style|object|embed|link|meta|form|input|button|body|html|div|span|p|b|i|br|video|audio|source|base|math|template|textarea|select|details|marquee)\b[^>]{0,200}>?|<!--|\bjavascript:|\bon[a-z]+\s*=/gi],
   ["secret", new RegExp([
     String.raw`\bsk-[A-Za-z0-9_-]{8,}`, String.raw`\b[rsp]k_(?:live|test)_\w+`, String.raw`\bgithub_pat_\w+`, String.raw`\bgh[pousr]_[A-Za-z0-9]{10,}`,
     String.raw`\bxox[abprs]-[\w-]+`, String.raw`\bAKIA[0-9A-Z]{12,}`, String.raw`\b(?:Bearer|Basic)\s+(?=[\w.~+/-]*[\d_.~+/-])[\w.~+/-]{8,}=*`,

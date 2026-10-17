@@ -156,3 +156,24 @@ describe("gate", () => {
     expect(rulesOf({ ...base, what: "Bearer authentication is required on every call." })).toEqual([]);
   });
 });
+
+describe("html rule", () => {
+  const base = { kind: "friction", category: "docs", surface: "Docs Site" };
+  it.each([
+    "<script>alert(1)</script> broke the page",
+    "the button <img src=x onerror=alert(1)> did nothing",
+    "a link javascript:alert(1) appeared",
+    "<svg onload=alert(1)>",
+  ])("blocks %s", (what) => {
+    const r = gate({ ...base, what });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.problems.map((p) => p.rule)).toContain("html");
+  });
+  it.each(["costs went from 3 to 5 calls", "a < b and c > d in the compare tool", "x <= 10 limit hit"])("allows %s", (what) => {
+    expect(gate({ ...base, what }).ok).toBe(true);
+  });
+});
+
+it("html rule allows placeholder tokens like <redacted> and <id>", () => {
+  expect(gate({ kind: "friction", category: "errors", surface: "AWS S3", what: "Errors show Request ID: <redacted> and <id> only." }).ok).toBe(true);
+});

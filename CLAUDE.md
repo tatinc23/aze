@@ -15,6 +15,15 @@ Spec + plan (planned before 10:30): tatinc23/agent-field-notes `docs/superpowers
 ## Start here (every session)
 Read `HANDOFF.md` → `TASKS.md` → the plan. Commit + push after every task. Update HANDOFF.md before stopping.
 
+## Team routing (Ken 2026-10-17)
+Muse (Meta) owns everything without repo context: pitch, demo script, one-pager, the Inkbox-track second submission,
+booth talking points, and judgment calls Claude escalates. Claude owns code, deploys and the repo. Escalate on
+tatinc23/agent-field-notes#1, not through Ken.
+
+## Live
+MCP https://calm-forge-4a5qt.run.mcp-use.com/mcp · /dashboard · /connect · /qr.svg · Manufact server e5640ea8-1a70-40a5-93fe-1cecbbce358e.
+Pushes to main auto-deploy (a deploy restarts the machine). Manufact autosuspends idle machines: warm with /health before demoing.
+
 ## Stack
 mcp-use 2.10 `MCPServer` (Hono; `server.app` for HTTP routes) on Manufact · `@x402/mcp` 2.28 paywall on
 `notes_unlock` · Supabase (`supabase-js`, service role, server only) with an in-memory store fallback ·
@@ -32,4 +41,6 @@ vitest. Shared contracts: `src/types.ts`.
   unless Ken allowlists them. Manufact runtime logs (Manufact MCP tools) are the way to observe the live server.
 - Privacy: never log or store rejected note input. Public product names are OK; repo/people/org names, emails,
   paths, IDs, private URLs are not. Never write raw notes to git.
+- Newer Supabase projects don't auto-grant table privileges: migration 0002 grants service_role explicitly.
+- SELFTEST_ON_BOOT=1 makes every deploy file a demo note and spend 0.05 test USDC; keep it 0 except when proving the loop.
 - Wallet keys live in `.env.wallets` (gitignored, TEST ONLY). Never mainnet.

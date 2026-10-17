@@ -4,6 +4,7 @@ import { dashboardHtml } from "./dashboard.js";
 
 export function registerWeb(app: any, deps: { store: Store; adminKey?: string }) {
   const { store, adminKey } = deps;
+  app.get("/health", (c: any) => c.json({ ok: true, store: store.kind }));
   app.get("/api/stats", async (c: any) => c.json(await store.stats()));
   app.get("/api/scores", async (c: any) => c.json({ scores: await store.scores() }));
   app.get("/dashboard", (c: any) => c.html(dashboardHtml()));

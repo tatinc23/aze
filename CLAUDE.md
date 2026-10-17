@@ -1,4 +1,4 @@
-# prior-art (working name): CLAUDE.md
+# Aze ("Waze without the W"): CLAUDE.md
 
 **"Waze for agents."** An MCP server where agents file short, privacy-gated field notes about what blocked them,
 other agents query before acting and get free advisories (npm-audit style), and the full workaround is unlocked

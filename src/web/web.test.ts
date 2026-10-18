@@ -570,6 +570,9 @@ describe("public run records: only the rendered answer and timings", () => {
     expect(renderedAnswer({ answer: NOTHING_TO_DO, timings: t(false, "skipped: no facts") })).toBe(NOTHING_TO_DO);
     expect(renderedAnswer({ answer: null, timings: t(true) })).toBeNull();
     expect(renderedAnswer({ answer: "x", timings: "nope" as unknown as [] })).toBeNull();
+    // A fetched page can smuggle identifiers into the rendered answer: masked; source URLs stay (answers cite them).
+    expect(renderedAnswer({ answer: "Mail ops@corp.example or @ken_t at 10.0.0.7; see https://docs.github.com/rest", timings: t(true) }))
+      .toBe("Mail [email] or [handle] at [ipv4]; see https://docs.github.com/rest");
   });
 
   it("GET /api/runs hides answers that are not the renderer's", async () => {

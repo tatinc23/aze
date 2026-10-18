@@ -9,7 +9,11 @@ import { split } from "./pay/split.js";
 import type { createPaywall } from "./pay/index.js";
 import { registerWeb } from "./web/index.js";
 import type { RuntimeDeps } from "./runtime/types.js";
-import { registerRuntimeTools } from "./runtime/tools.js";
+import { createLimiter, registerRuntimeTools } from "./runtime/tools.js";
+
+/** Every audited note is a paid SubQ Snap call and notes_file is public: one server-wide cap. Over it, the note is
+ * refused (nothing stored) rather than filed unaudited, so a flood can't switch the third privacy layer off. */
+export const AUDITS_PER_MINUTE = 120;
 
 type Paywall = Awaited<ReturnType<typeof createPaywall>>;
 const json = (data: Record<string, unknown>, isError = false) => ({
@@ -18,9 +22,10 @@ const json = (data: Record<string, unknown>, isError = false) => ({
   ...(isError ? { isError: true } : {}),
 });
 
-export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string; runtime?: RuntimeDeps | null }) {
+export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string; runtime?: RuntimeDeps | null; auditsPerMinute?: number }) {
   const { store, paywall } = deps;
   const runtime = deps.runtime ?? null;
+  const auditLimiter = createLimiter(deps.auditsPerMinute ?? AUDITS_PER_MINUTE, 60_000);
   // A store outage must never crash a tool call or charge anyone: fall back to defaults and answer with a structured error.
   const settingsOf = () => store.getSettings().catch((e) => { console.error("settings unavailable:", (e as Error).message); return DEFAULT_SETTINGS; });
   const unavailable = (what: string) => json({ ok: false, code: "store_unavailable", hint: `Could not ${what} right now; nothing was charged. Try again in a minute.` }, true);
@@ -68,6 +73,8 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       // Third privacy layer: SubQ Snap audits what passed the rules. The auditor never throws (fails open as "skipped").
       let audit: NoteAudit | null = null;
       if (runtime?.auditor) {
+        const slot = auditLimiter.tryAcquire();
+        if (!slot.ok) return json({ ok: false, code: "busy", hint: "Aze is reviewing too many notes right now; nothing was saved. Try again shortly.", retry_after_s: slot.retry_after_s }, true);
         const similar = await store.findMatches({ surface: result.note.surface, tool: result.note.tool, error_class: result.note.error_class }, 3).catch(() => []);
         audit = await runtime.auditor.audit(result.note, similar);
         if (audit.status === "rejected") {

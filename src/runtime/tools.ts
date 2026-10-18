@@ -1,13 +1,16 @@
 // Stream A: registers the `agent_run` MCP tool (runs the pipeline for one task). It SPENDS provider credits, so it
-// needs an access key (RUNTIME_ACCESS_KEY or ADMIN_KEY, constant-time compare) and has a global 60 runs/hour limit.
+// needs RUNTIME_ACCESS_KEY (constant-time compare; never ADMIN_KEY, which must not ride in LLM-visible tool args), has
+// a global 60 runs/hour limit and at most 3 runs in flight, and applies the same task rules as POST /admin/run.
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { Store } from "../types.js";
 import { seedCatalog } from "./catalog.js";
 import { createPipeline } from "./pipeline.js";
 import type { AgentContext, Pipeline, RunStore, RuntimeDeps } from "./types.js";
+import { hasControlChars, surfaceRule, taskTextRule } from "../swarm/tasks.js";
 
 export const RUNS_PER_HOUR = 60;
+export const MAX_IN_FLIGHT = 3;
 const HOUR_MS = 3_600_000;
 
 const json = (data: Record<string, unknown>, isError = false) => ({
@@ -58,6 +61,7 @@ export function registerRuntimeTools(
   seedOnce(runtime.runs, env);
   const pipeline = deps.pipeline ?? createPipeline(runtime.runs, runtime, { env });
   const limiter = createLimiter(RUNS_PER_HOUR, HOUR_MS, deps.now);
+  let inFlight = 0;
 
   (server as { tool: (def: unknown, cb: (args: any, ctx?: unknown) => Promise<unknown>) => unknown }).tool(
     {
@@ -73,26 +77,35 @@ export function registerRuntimeTools(
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     async (args: { task: string; surface?: string; access_key: string }) => {
-      const keys = [env.RUNTIME_ACCESS_KEY, env.ADMIN_KEY].filter((k): k is string => typeof k === "string" && k.length > 0);
+      const keys = [env.RUNTIME_ACCESS_KEY].filter((k): k is string => typeof k === "string" && k.length > 0);
       if (!keys.length) return json({ ok: false, code: "disabled", hint: "agent_run is disabled on this server: no access key is configured. Nothing was run or charged." }, true);
       const given = typeof args?.access_key === "string" ? args.access_key : "";
       let match = false;
       for (const k of keys) match = safeEqual(given, k) || match; // check every key; no early exit
       if (!match) return json({ ok: false, code: "unauthorized", hint: "Wrong or missing access_key. Nothing was run." }, true);
-      const task = typeof args?.task === "string" ? args.task.trim() : "";
-      if (!task || task.length > 500) return json({ ok: false, code: "invalid_task", hint: "task must be 1-500 characters." }, true);
-      const surface = typeof args?.surface === "string" && args.surface.trim() ? args.surface.trim().slice(0, 60) : null;
+      // The task goes to the models and into the run log: same rules as POST /admin/run. Rejections name the rule only.
+      const task = typeof args?.task === "string" && !hasControlChars(args.task) ? args.task.replace(/\s+/g, " ").trim() : "";
+      if (!task || task.length > 500) return json({ ok: false, code: "invalid_task", hint: "task must be 1-500 characters of plain text." }, true);
+      const tRule = taskTextRule(task);
+      if (tRule) return json({ ok: false, code: "invalid_task", rule: tRule, hint: "Remove credentials, secrets, emails, private hosts, invisible characters and instructions aimed at the model. Nothing was run." }, true);
+      const surface = typeof args?.surface === "string" && args.surface.trim() ? args.surface.replace(/\s+/g, " ").trim() : null;
+      const sRule = surface ? surfaceRule(surface) : null;
+      if (sRule) return json({ ok: false, code: "invalid_surface", rule: sRule, hint: "surface must be a public product name. Nothing was run." }, true);
+      if (inFlight >= MAX_IN_FLIGHT) return json({ ok: false, code: "busy", hint: `At most ${MAX_IN_FLIGHT} agent runs at a time; try again when one finishes. Nothing was run.` }, true);
       const slot = limiter.tryAcquire();
       if (!slot.ok) return json({ ok: false, code: "rate_limited", hint: `agent_run is limited to ${RUNS_PER_HOUR} runs per hour; try again later.`, retry_after_s: slot.retry_after_s }, true);
 
       const ctx: AgentContext = { agent_id: "agent_run", swarm_id: null, attestation: "unverified", payout_address: null, machine: null, identity: null };
       let r;
+      inFlight++;
       try {
         r = await pipeline.run(task, surface, ctx);
       } catch (e) {
         // Pipeline.run never throws by contract; a tool handler must not either.
         console.error("[agent_run] pipeline error:", String((e as Error)?.message ?? e).replace(/\s+/g, " ").slice(0, 160));
         return json({ ok: false, code: "run_failed", hint: "The run failed before it could be logged." }, true);
+      } finally {
+        inFlight--;
       }
       return json(
         { run_id: r.id, status: r.status, answer: r.answer, timings: r.timings, notes_filed: r.notes_filed, cost_micro_usd: r.cost_micro_usd, error: r.error },

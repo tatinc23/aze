@@ -17,6 +17,7 @@ import { createPipeline, NOTHING_TO_DO } from "../runtime/pipeline.js";
 import type { AgentContext, Pipeline, RunRecord, RunStats, RuntimeDeps, Tier, TierTiming } from "../runtime/types.js";
 import { createRunBudget, runsPerHour, type RunBudget } from "../swarm/budget.js";
 import { defaultRunner, intInRange, MAX_AGENTS, SwarmBusyError, SwarmInputError, type SwarmRunner, type SwarmState } from "../swarm/runner.js";
+import { maskIdentifiers } from "../gate/index.js";
 import { hasControlChars, loadTasks, MAX_SURFACE_CHARS, MAX_TASK_CHARS, SECRET_MASK_RE, surfaceRule, taskTextRule } from "../swarm/tasks.js";
 import { createWallets, type Wallets } from "../swarm/wallets.js";
 
@@ -98,7 +99,8 @@ export function renderedAnswer(r: Pick<RunRecord, "answer" | "timings">): string
   if (typeof r.answer !== "string" || !r.answer) return null;
   if (r.answer === NOTHING_TO_DO) return r.answer;
   const rendered = Array.isArray(r.timings) && r.timings.some((t) => t?.tier === "render" && t.ok === true);
-  return rendered ? redactPublic(r.answer) : null;
+  // A fetched page can put emails, handles or IPs into the answer (prompt injection or plain content): mask them too.
+  return rendered ? maskIdentifiers(redactPublic(r.answer)) : null;
 }
 
 /** Task/surface text as shown publicly. Runs also come from the agent_run tool, which does not apply the swarm task

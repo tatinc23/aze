@@ -1,0 +1,177 @@
+[
+ {
+  "id": "swarm-016",
+  "surface": "npmjs-registry",
+  "task": "Get the metadata for the 'express' package from registry.npmjs.org and report its latest version, publish date, and description."
+ },
+ {
+  "id": "swarm-017",
+  "surface": "npmjs-registry",
+  "task": "Get the metadata for the '@x402/mcp' package from registry.npmjs.org. Report the latest version and whether it has a README."
+ },
+ {
+  "id": "swarm-018",
+  "surface": "npmjs-registry",
+  "task": "Search registry.npmjs.org for packages matching 'mcp-use' and return the top three names."
+ },
+ {
+  "id": "swarm-019",
+  "surface": "npmjs-registry",
+  "task": "Find the tarball URL for the latest 'express' version from registry.npmjs.org without downloading it."
+ },
+ {
+  "id": "swarm-073",
+  "surface": "npmjs-registry",
+  "task": "Request express version 999.999.999 from registry.npmjs.org and report the exact error and whether it suggests a fix."
+ },
+ {
+  "id": "swarm-020",
+  "surface": "open-meteo-api",
+  "task": "Get the current temperature and wind speed for San Francisco (37.77, -122.41) from api.open-meteo.com with no API key."
+ },
+ {
+  "id": "swarm-021",
+  "surface": "open-meteo-api",
+  "task": "Request a 7-day forecast for Tokyo from api.open-meteo.com and return only the daily max temperatures."
+ },
+ {
+  "id": "swarm-022",
+  "surface": "open-meteo-api",
+  "task": "Ask api.open-meteo.com for hourly data with an invalid parameter and report the exact error and whether it explains the fix."
+ },
+ {
+  "id": "swarm-075",
+  "surface": "open-meteo-api",
+  "task": "Request current weather for coordinates 0,0 from api.open-meteo.com and report what the API returns for open ocean."
+ },
+ {
+  "id": "swarm-023",
+  "surface": "wikipedia",
+  "task": "Fetch the Wikipedia REST summary for 'Model Context Protocol' and return the first two sentences, or report that it does not exist."
+ },
+ {
+  "id": "swarm-024",
+  "surface": "wikipedia",
+  "task": "Fetch the Wikipedia page for 'HTTP 402' and report whether it mentions the x402 protocol."
+ },
+ {
+  "id": "swarm-003",
+  "surface": "wikipedia",
+  "task": "Fetch the Wikipedia REST summary for 'Waze' and return its first sentence."
+ },
+ {
+  "id": "swarm-076",
+  "surface": "wikipedia",
+  "task": "Fetch the Wikipedia REST summary for 'Twitter' and report whether a redirect to a renamed article was visible."
+ },
+ {
+  "id": "swarm-025",
+  "surface": "hacker-news-api",
+  "task": "Get the IDs of the current top 5 stories from the official Hacker News API (hacker-news.firebaseio.com) and return their titles."
+ },
+ {
+  "id": "swarm-026",
+  "surface": "hacker-news-api",
+  "task": "Fetch Hacker News item 8863 from the official API and verify it has title, by and time fields."
+ },
+ {
+  "id": "swarm-089",
+  "surface": "hacker-news-api",
+  "task": "Request Hacker News item 999999999 from the official API and report what it returns."
+ },
+ {
+  "id": "swarm-028",
+  "surface": "github-public-api",
+  "task": "Read the x-ratelimit-limit and x-ratelimit-remaining headers from https://api.github.com/rate_limit without auth and explain what they mean for an unauthenticated agent."
+ },
+ {
+  "id": "swarm-074",
+  "surface": "github-public-api",
+  "task": "Fetch https://api.github.com/repos/this-org-does-not-exist-zz/nope without auth and report whether the 404 distinguishes not found from no permission."
+ },
+ {
+  "id": "swarm-005",
+  "surface": "github-public-api",
+  "task": "Fetch the public repository list for the 'nodejs' organization from api.github.com without auth and report how many repos were returned."
+ },
+ {
+  "id": "swarm-029",
+  "surface": "arxiv-api",
+  "task": "Query export.arxiv.org/api/query for the newest 3 papers matching 'all:agent' and return their titles."
+ },
+ {
+  "id": "swarm-088",
+  "surface": "arxiv-api",
+  "task": "Query export.arxiv.org/api/query with a malformed search_query and report whether the error points at the bad parameter."
+ },
+ {
+  "id": "swarm-006",
+  "surface": "arxiv-api",
+  "task": "Search export.arxiv.org for 'agent infrastructure' and return the newest paper title."
+ },
+ {
+  "id": "swarm-030",
+  "surface": "openlibrary",
+  "task": "Search openlibrary.org/search.json for 'waze' and return the first result's title and author."
+ },
+ {
+  "id": "swarm-007",
+  "surface": "openlibrary",
+  "task": "Look up 'The Design of Everyday Things' on openlibrary.org/search.json and return its first publish year."
+ },
+ {
+  "id": "swarm-087",
+  "surface": "openlibrary",
+  "task": "Search openlibrary.org/search.json for a title in Japanese script and report whether the results were usable."
+ },
+ {
+  "id": "swarm-008",
+  "surface": "jsonplaceholder",
+  "task": "GET jsonplaceholder.typicode.com/posts/1 and verify it has userId, id, title and body fields."
+ },
+ {
+  "id": "swarm-032",
+  "surface": "jsonplaceholder",
+  "task": "GET jsonplaceholder.typicode.com/users and count how many users have an email ending in .biz."
+ },
+ {
+  "id": "swarm-009",
+  "surface": "httpbin",
+  "task": "Call httpbin.org/get?agent=aze and confirm the query parameter is echoed back."
+ },
+ {
+  "id": "swarm-033",
+  "surface": "httpbin",
+  "task": "Call httpbin.org/status/429 and report the exact status and body, and what a 429 means for an agent."
+ },
+ {
+  "id": "swarm-035",
+  "surface": "httpbin",
+  "task": "Call httpbin.org/delay/3 and report how long the response took."
+ },
+ {
+  "id": "swarm-077",
+  "surface": "httpbin",
+  "task": "Call httpbin.org/status/500 and report whether the failure looks transient or permanent from the agent's side."
+ },
+ {
+  "id": "swarm-046",
+  "surface": "web-general",
+  "task": "Fetch modelcontextprotocol.io and report the latest MCP specification version it mentions."
+ },
+ {
+  "id": "swarm-045",
+  "surface": "web-general",
+  "task": "Fetch https://www.python.org/sitemap.xml and report roughly how many URLs it lists, or whether it is blocked."
+ },
+ {
+  "id": "swarm-050",
+  "surface": "web-general",
+  "task": "Fetch https://www.githubstatus.com and report whether all systems are operational right now."
+ },
+ {
+  "id": "swarm-042",
+  "surface": "web-general",
+  "task": "Fetch the homepage of example.com and report its title and whether any JavaScript is needed to read it."
+ }
+]

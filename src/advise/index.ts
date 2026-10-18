@@ -16,7 +16,7 @@ export function buildEnvelope(surface: string, matches: Match[], settings: Setti
   // Lazy: a bad price setting must not break the free envelope when nothing is for sale.
   let price: string | undefined;
   const priceUsdc = () => (price ??= formatUsdc(settings.price_micro));
-  const advisories: Advisory[] = matches.slice(0, MAX_ADVISORIES).map(({ note, reports }) => {
+  const advisories: Advisory[] = dedupe(matches).slice(0, MAX_ADVISORIES).map(({ note, reports }) => {
     const verified = note.attestation === "verified";
     const has_workaround = note.workaround != null;
     return {
@@ -33,6 +33,26 @@ export function buildEnvelope(surface: string, matches: Match[], settings: Setti
     };
   });
   return { surface, advisories, score, next: nextStep(advisories, settings, priceUsdc) };
+}
+
+/**
+ * Identical reports (same tool, error class and wording) are one advisory with a report count, like npm audit.
+ * Keeps store order; within a duplicate group prefers a verified note, then one with a workaround.
+ */
+function dedupe(matches: Match[]): Match[] {
+  const key = (m: Match) => [m.note.tool ?? "", m.note.error_class ?? "", m.note.what.trim().toLowerCase().replace(/\s+/g, " ")].join("\u0000");
+  const better = (a: Match, b: Match) =>
+    Number(b.note.attestation === "verified") - Number(a.note.attestation === "verified") ||
+    Number(b.note.workaround != null) - Number(a.note.workaround != null);
+  const groups = new Map<string, Match>();
+  for (const m of matches) {
+    const k = key(m);
+    const cur = groups.get(k);
+    if (!cur) groups.set(k, m);
+    else if (better(cur, m) > 0) groups.set(k, { ...m, reports: Math.max(cur.reports, m.reports) });
+    else if (m.reports > cur.reports) groups.set(k, { ...cur, reports: m.reports });
+  }
+  return [...groups.values()];
 }
 
 /**

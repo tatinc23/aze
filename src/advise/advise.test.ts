@@ -110,3 +110,29 @@ describe("buildEnvelope", () => {
     );
   });
 });
+
+describe("buildEnvelope dedupe", () => {
+  const base = {
+    id: "n1", created_at: "2026-10-17T00:00:00.000Z", kind: "barrier" as const, category: "signup", surface: "inkbox",
+    surface_display: "Inkbox", what: "Signup blocks on a 6-digit code.", tool: "signup form", error_class: null,
+    tokens_spent: null, dollars_spent: null, workaround: "Ask the human once, then reuse the session.", teaser: "Ask the human once…",
+    wish: null, attestation: "unverified" as const, quarantined: true, tier: "experiment" as const, visibility: "public" as const, hidden: false,
+  };
+  const settings = { filing_enabled: true, unlock_enabled: true, price_micro: 50000, filer_bps: 7000 };
+  it("collapses identical reports into one advisory carrying the report count", () => {
+    const matches = [1, 2, 3].map((i) => ({ note: { ...base, id: `n${i}` }, reports: 3 }));
+    const env = buildEnvelope("inkbox", matches, settings, null);
+    expect(env.advisories).toHaveLength(1);
+    expect(env.advisories[0].reports).toBe(3);
+  });
+  it("keeps different issues separate and prefers a verified or workaround-bearing duplicate", () => {
+    const matches = [
+      { note: { ...base, id: "a", workaround: null, teaser: null }, reports: 2 },
+      { note: { ...base, id: "b", attestation: "verified" as const }, reports: 2 },
+      { note: { ...base, id: "c", what: "A different problem." }, reports: 1 },
+    ];
+    const env = buildEnvelope("inkbox", matches, settings, null);
+    expect(env.advisories.map((a) => a.note_id)).toEqual(["b", "c"]);
+    expect(env.advisories[0].verified).toBe(true);
+  });
+});

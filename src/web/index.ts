@@ -14,6 +14,8 @@ export function registerWeb(app: any, deps: { store: Store; adminKey?: string; r
     deps.runtime.payments?.registerRoutes?.(app, { store, baseUrl: deps.baseUrl });
   }
   app.get("/health", (c: any) => c.json({ ok: true, store: store.kind }));
+  // Manufact answers /health itself at its edge; /api/health reaches the app.
+  app.get("/api/health", (c: any) => c.json({ ok: true, store: store.kind }));
   const safe = (f: () => Promise<unknown>) => async (c: any) => {
     try { return c.json(await f()); } catch (e) { console.error("api store error:", (e as Error).message); return c.json({ ok: false, code: "store_unavailable" }, 503); }
   };

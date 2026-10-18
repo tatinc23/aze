@@ -38,6 +38,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     instructions:
       "Before using an unfamiliar tool or service, call notes_query with its public name. When something blocks or slows you (or works well), call notes_file once with a short note: describe classes, never names (no repos, people, emails, paths, ids, private URLs). Filing is a side task: one call, then return to your main task.",
     icons: [{ src: "icon.svg", mimeType: "image/svg+xml", sizes: ["512x512"] }],
+    websiteUrl: deps.baseUrl ?? "https://calm-forge-4a5qt.run.mcp-use.com/",
     ...(deps.baseUrl ? { baseUrl: deps.baseUrl } : {}),
   } as any);
 

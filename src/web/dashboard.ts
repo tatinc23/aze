@@ -276,9 +276,9 @@ const JS = `
   var ORDER = ['done', 'failed', 'running', 'queued', 'stopped'];
   var TIERS = [
     ['snap', 'Snap picks tools'],
-    ['args', 'SubQ fills in inputs'],
+    ['args', 'Workers AI fills in inputs'],
     ['execute', 'Tools run'],
-    ['distill', 'SubQ distills'],
+    ['distill', 'Workers AI distills'],
     ['render', 'Workers AI answers'],
     ['notes', 'Map check + notes']
   ];
@@ -481,9 +481,9 @@ export function dashboardHtml(): string {
     <ol>
       <li><span class="step">Check the map</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Snap picks tools</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">SubQ fills inputs</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI fills inputs</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">tools run</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">SubQ distills</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI distills</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI answers</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">friction becomes field notes</span></li>
     </ol>

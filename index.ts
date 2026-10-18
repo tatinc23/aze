@@ -11,21 +11,24 @@ const store = createStore(env);
 
 let paywall: Awaited<ReturnType<typeof createPaywall>> | null = null;
 const runtimeRef: { current: ReturnType<typeof buildRuntime> | null } = { current: null };
-if (env.PLATFORM_ADDRESS && !building) {
+// payTo: a Stripe sandbox crypto deposit address (Base Sepolia) when set, so test payments land in the Stripe sandbox
+// balance; otherwise our own platform test wallet. Test mode only.
+const payTo = env.STRIPE_DEPOSIT_ADDRESS || env.PLATFORM_ADDRESS;
+if (payTo && !building) {
   try {
     const settings = await store.getSettings().catch(() => DEFAULT_SETTINGS);
     paywall = await createPaywall({
       facilitatorUrl: env.X402_FACILITATOR_URL ?? "https://x402.org/facilitator",
-      payTo: env.PLATFORM_ADDRESS,
+      payTo,
       priceMicro: settings.price_micro,
       onSettled: (s) => recordSettledUnlock(store, s, runtimeRef.current),
     });
-    console.log(`paywall ready: payTo=${env.PLATFORM_ADDRESS} price_micro=${settings.price_micro}`);
+    console.log(`paywall ready: payTo=${payTo} (${env.STRIPE_DEPOSIT_ADDRESS ? "stripe sandbox deposit address" : "platform wallet"}) price_micro=${settings.price_micro}`);
   } catch (e) {
     console.error("paywall unavailable (notes_unlock will refuse without charging):", (e as Error).message);
   }
 } else {
-  console.warn("PLATFORM_ADDRESS not set: notes_unlock disabled");
+  console.warn("PLATFORM_ADDRESS / STRIPE_DEPOSIT_ADDRESS not set: notes_unlock disabled");
 }
 
 if (!building && store.kind === "supabase") {

@@ -3,7 +3,7 @@
 // Default model is a fast non-reasoning Llama (a "System 1" answers on instinct, not after a chain of thought).
 // It speaks the decision format through a JSON reply that is mapped onto SnapAnswer, so noulOf / choiceOf /
 // scoreLevelOf read both models' answers the same way. Same credentials, redaction and REST call as the renderer.
-// SYSTEM_ONE_CF=off disables it; SYSTEM_ONE_CF_MODEL / SYSTEM_ONE_CF_FALLBACK_MODEL ("off" = none) pick the models.
+// Opt-in: off unless SYSTEM_ONE_CF=on (its p_yes is not calibrated against Snap yet). SYSTEM_ONE_CF_MODEL / SYSTEM_ONE_CF_FALLBACK_MODEL ("off" = none) pick the models.
 // Cost stays null (unpriced) like the other Workers AI tiers: the ensemble only bills Snap's tokens.
 import type { ProviderDiag, Usage } from "../runtime/types.js";
 import type { Decider } from "../subq/snap.js";
@@ -19,6 +19,7 @@ export const SYSTEM_ONE_MAX_TOKENS = 700;
 const DIAG_TIMEOUT_MS = 12_000;
 const MODEL_RE = /^@(?:cf|hf)\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const OFF = /^(off|none|0|false)$/i;
+const ON = /^(on|1|true|yes)$/i;
 
 export const SYSTEM_PROMPT = [
   "You are a System One decision model: fast, calibrated judgments about a STATE.",
@@ -104,9 +105,9 @@ export class WorkersAiDecider implements Decider {
   }
 }
 
-/** Config for the second System One model, or null (no CF credentials, or SYSTEM_ONE_CF=off). */
+/** Config for the second System One model, or null (SYSTEM_ONE_CF not "on", or no CF credentials). */
 export function systemOneConfig(env: NodeJS.ProcessEnv): WorkersAiConfig | null {
-  if (OFF.test(env.SYSTEM_ONE_CF?.trim() ?? "")) return null;
+  if (!ON.test(env.SYSTEM_ONE_CF?.trim() ?? "")) return null;
   const { cfg } = workersAiConfig(env);
   if (!cfg) return null;
   const pick = (v: string | undefined, dflt: string) => (v?.trim() && MODEL_RE.test(v.trim()) ? v.trim() : dflt);

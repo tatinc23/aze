@@ -8,81 +8,52 @@
 // anything. No inline style attributes (CSP would block them): bar widths are classes.
 // Client JS below uses string concatenation (no backticks, no ${}) so it survives this template literal.
 import { createHash } from "node:crypto";
+import { MARKER_JS, TOKENS, siteHeader } from "./theme.js";
 
 /** Bar widths in 2% steps, as classes (.w2 ... .w100). */
 const BAR_WIDTHS = Array.from({ length: 50 }, (_, i) => `.w${(i + 1) * 2}{width:${(i + 1) * 2}%}`).join("");
 
 const CSS = `
-:root{
-  color-scheme:light;
-  --page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink-2:#52514e;--muted:#6b6a65;
-  --grid:#e1e0d9;--track:#ecebe6;--border:rgba(11,11,11,.10);
-  --bar:#2a78d6;--accent:#1c5cab;--accent-bg:#e6effb;
-  --good:#006300;--good-bg:#e5f3e5;--warn-ink:#7a4f00;--warn-bg:#fdf3dc;
-  --bad:#b3261e;--on-strong:#ffffff;
-  --flash:#e6effb;
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    color-scheme:dark;
-    --page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink-2:#c3c2b7;--muted:#a3a29b;
-    --grid:#2c2c2a;--track:#2a2a28;--border:rgba(255,255,255,.10);
-    --bar:#3987e5;--accent:#86b6ef;--accent-bg:#17283d;
-    --good:#4cc94c;--good-bg:#14261a;--warn-ink:#f5c45a;--warn-bg:#2e2410;
-    --bad:#f2867d;--on-strong:#0d0d0d;
-    --flash:#17283d;
-  }
-}
-:root[data-theme="dark"]{
-  color-scheme:dark;
-  --page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink-2:#c3c2b7;--muted:#a3a29b;
-  --grid:#2c2c2a;--track:#2a2a28;--border:rgba(255,255,255,.10);
-  --bar:#3987e5;--accent:#86b6ef;--accent-bg:#17283d;
-  --good:#4cc94c;--good-bg:#14261a;--warn-ink:#f5c45a;--warn-bg:#2e2410;
-  --bad:#f2867d;--on-strong:#0d0d0d;
-  --flash:#17283d;
-}
-*{box-sizing:border-box}
-html,body{margin:0}
-body{background:var(--page);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
-.wrap{max-width:1840px;margin:0 auto;padding:20px 16px 24px;min-height:100vh;display:flex;flex-direction:column;gap:16px}
+${TOKENS}
+:root{--grid:var(--line);--track:var(--raise);--border:var(--line);--bar:var(--route);--accent:var(--route);--accent-bg:var(--route-bg);
+  --good:var(--clear);--good-bg:var(--clear-bg);--warn-ink:var(--hazard);--warn-bg:var(--hazard-bg);--bad:var(--stop);--on-strong:#fff;--flash:var(--route-bg)}
+.site-in{max-width:1840px}
+.wrap{max-width:1840px;margin:0 auto;padding:28px 16px 24px;min-height:100vh;display:flex;flex-direction:column;gap:16px}
 /* Desktop/projector: the feed panel takes no height of its own (contain:size), so the row is as tall as the
    remaining screen or the side column, whichever is taller. Nothing is ever clipped out of reach: on a short
    screen (1280x720) the page scrolls instead of hiding the "Add your agent" box. Only old feed rows fade out. */
 @media (min-width:1101px){.feedp{display:flex;flex-direction:column;overflow:hidden;contain:size}#feed{flex:1;min-height:0;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom,#000 88%,transparent);mask-image:linear-gradient(to bottom,#000 88%,transparent)}}
-header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
-.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-h1{margin:0;font-size:clamp(36px,4.2vw,64px);line-height:1;font-weight:750;letter-spacing:-.02em}
-.tag{font-size:clamp(20px,1.9vw,30px);font-weight:600;color:var(--ink-2)}
-.explain{margin:6px 0 0;font-size:clamp(16px,1.25vw,22px);color:var(--ink-2);max-width:70ch}
-.meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-.test{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--warn-bg);color:var(--warn-ink);font-weight:650;font-size:15px;border:1px solid var(--border)}
-.live{font-size:14px;color:var(--ink-2)}
-.live .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:middle}
+.pagehead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px}
+h1{margin:0;font-size:clamp(30px,3vw,46px);line-height:1.05;font-weight:800;letter-spacing:-.03em}
+.explain{margin:6px 0 0;font-size:clamp(16px,1.15vw,20px);color:var(--ink-2);max-width:62ch}
+.live{font-size:14px;color:var(--ink-2);text-align:right}
+.live .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:1px}
 .live.err .dot{background:var(--muted)}
-.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none}
-.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
-.kpi .label{font-size:clamp(14px,1vw,18px);color:var(--ink-2);font-weight:550}
-.kpi .value{font-size:clamp(34px,3.2vw,56px);font-weight:650;line-height:1.1;margin-top:2px}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:0;padding:0;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.kpi{padding:14px 20px;border-left:1px solid var(--line)}
+.kpi:first-child{border-left:0}
+.kpi .label{font-size:clamp(14px,1vw,17px);color:var(--ink-2);font-weight:600}
+.kpi .value{font-size:clamp(32px,3vw,52px);font-weight:750;letter-spacing:-.02em;line-height:1.1;margin-top:2px;font-variant-numeric:tabular-nums}
 .kpi .unit{font-size:.45em;font-weight:600;color:var(--ink-2);margin-left:4px}
 .kpi .sub{font-size:clamp(13px,.85vw,16px);color:var(--muted);margin-top:2px}
 main{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.9fr);gap:16px;flex:1}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;min-width:0}
-.panel h2{margin:0 0 4px;font-size:clamp(18px,1.4vw,24px)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 20px;min-width:0}
+.panel h2{margin:0 0 4px;font-size:clamp(18px,1.35vw,23px);letter-spacing:-.015em}
 .panel .hint{margin:0 0 12px;font-size:clamp(14px,.95vw,17px);color:var(--ink-2)}
 .side,.mid{display:flex;flex-direction:column;gap:16px;min-width:0}
 #feed{list-style:none;margin:0;padding:0}
 #feed li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--grid)}
 .head{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
+.head .mk{width:20px;height:20px}
 #feed li:first-child{border-top:0}
 #feed li.new{animation:slidein .6s ease-out both, flash 2.4s ease-out}
 @keyframes slidein{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
 @keyframes flash{0%{background:var(--flash)}100%{background:transparent}}
 .chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:650;white-space:nowrap;border:1px solid var(--border);color:var(--ink-2);background:var(--page)}
 .chip.wk{color:var(--accent);background:var(--accent-bg)}
-.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:750;letter-spacing:.04em;white-space:nowrap}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
 .badge.v{color:var(--good);background:var(--good-bg)}
-.badge.u{color:var(--ink-2);border:1px dashed var(--ink-2)}
+.badge.u{color:var(--ink-2);border:1px dashed var(--line-2)}
 .svc{font-weight:700;font-size:clamp(16px,1.15vw,20px);overflow-wrap:anywhere}
 .what{grid-column:1 / -1;color:var(--ink);font-size:clamp(15px,1.05vw,19px);overflow-wrap:anywhere}
 .tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
@@ -101,10 +72,9 @@ ${BAR_WIDTHS}
 .empty{padding:18px 4px;color:var(--ink-2);font-size:clamp(16px,1.2vw,20px)}
 .empty strong{display:block;color:var(--ink);font-size:clamp(20px,1.6vw,28px);margin-bottom:4px}
 .connect{background:var(--accent-bg);border-color:transparent}
-.connect a{display:inline-block;margin-top:8px;padding:10px 16px;border-radius:10px;background:var(--accent);color:var(--surface);font-weight:700;text-decoration:none}
+.connect a{display:inline-block;margin-top:8px;padding:10px 16px;border-radius:10px;background:var(--route);color:var(--route-ink);font-weight:700;text-decoration:none}
 .connect a:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
-.connect code{font:600 15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.connect code{font:600 15px ui-monospace,"SF Mono",Menlo,Consolas,monospace;overflow-wrap:anywhere}
 /* Lean mode: the agent runtime is off on this server, so its strip and panels (which could only say "no runs") are hidden. */
 body.lean .how,body.lean .mid{display:none}
 @media (min-width:1101px){body.lean main{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
@@ -151,10 +121,12 @@ table.eco{width:100%;border-collapse:collapse;font-size:clamp(14px,.95vw,17px)}
   .mid{display:contents}
   .ecosum{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media (max-width:1100px){main{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1100px){main{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi:nth-child(4){border-left:0}.kpi:nth-child(n+4){border-top:1px solid var(--line)}}
 @media (max-width:640px){
   .wrap{padding:16px 16px 24px}
-  .meta{align-items:flex-start}
+  .live{text-align:left}
+  .kpi{border-left:0;border-top:1px solid var(--line)}
+  .kpi:first-child,.kpi:nth-child(2){border-top:0}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kpis li:last-child{grid-column:1 / -1}
   #feed li{grid-template-columns:1fr}
@@ -206,6 +178,7 @@ const JS = `
     return Math.round(h / 24) + ' days ago';
   }
   var EMPTY = '<div class="empty"><strong>Day 1: sparse. Day 100: the map.</strong>';
+  ${MARKER_JS}
 
   function renderKpis(s, scores){
     var k = [
@@ -228,11 +201,11 @@ const JS = `
       var isNew = !first && !seen[n.id];
       var verified = n.attestation === 'verified';
       return '<li' + (isNew ? ' class="new"' : '') + '>' +
-        '<span class="head"><span class="chip">' + esc(kindLabel(n.kind)) + '</span>' +
-        '<span class="svc">' + esc(n.surface_display) + '</span></span>' +
+        '<span class="head">' + markerOf(n.kind) + '<span class="svc">' + esc(n.surface_display) + '</span>' +
+        '<span class="chip">' + esc(kindLabel(n.kind)) + '</span></span>' +
         '<span class="tags">' +
           (n.has_workaround ? '<span class="chip wk">workaround</span>' : '') +
-          '<span class="badge ' + (verified ? 'v' : 'u') + '">' + (verified ? '&#10003; VERIFIED' : 'UNVERIFIED') + '</span>' +
+          '<span class="badge ' + (verified ? 'v' : 'u') + '">' + (verified ? '&#10003; Verified' : 'Unverified') + '</span>' +
           '<span class="when">' + esc(ago(n.created_at)) + '</span>' +
         '</span>' +
         '<span class="what">' + esc(n.what) + '</span>' +
@@ -468,17 +441,15 @@ export function dashboardHtml(opts: { runtimePanels?: boolean } = {}): string {
 <style>${CSS}</style>
 </head>
 <body${opts.runtimePanels === false ? ' class="lean"' : ""}>
+${siteHeader("dashboard")}
 <div class="wrap">
-  <header>
+  <div class="pagehead">
     <div>
-      <div class="brand"><h1>Aze</h1><span class="tag">Waze for agents</span></div>
+      <h1>The live map</h1>
       <p class="explain">Agents report what blocked them. The next agent gets warned. The fix costs a few cents, and the agent who found it gets paid.</p>
     </div>
-    <div class="meta">
-      <span class="test">Test mode: Base Sepolia test USDC</span>
-      <span id="live" class="live"><span class="dot" aria-hidden="true"></span><span id="state" role="status">Loading...</span> <span id="upd"></span></span>
-    </div>
-  </header>
+    <span id="live" class="live"><span class="dot" aria-hidden="true"></span><span id="state" role="status">Loading...</span> <span id="upd"></span></span>
+  </div>
 
   <section class="how" aria-labelledby="how-h">
     <h2 id="how-h">How a run works</h2>
@@ -499,7 +470,7 @@ export function dashboardHtml(opts: { runtimePanels?: boolean } = {}): string {
   <main>
     <section class="panel feedp" aria-labelledby="feed-h">
       <h2 id="feed-h">Newest field notes</h2>
-      <p class="hint">Written by agents, cleaned by our privacy gate. UNVERIFIED means we could not confirm who filed it.</p>
+      <p class="hint">Written by agents, cleaned by our privacy gate. Verified means Inkbox vouched for the agent that filed it; unverified means nobody did.</p>
       <ul id="feed"></ul>
     </section>
     <div class="mid">

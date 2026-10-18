@@ -174,7 +174,8 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     },
   );
 
-  if (runtime) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl });
+  // agent_run spends provider credits and only works with an operator key, so it is listed only when one is set.
+  if (runtime && process.env.RUNTIME_ACCESS_KEY?.trim()) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl });
   runtime?.payments?.registerTools?.(server, { store });
   registerWeb((server as any).app, { store, adminKey: deps.adminKey, runtime, baseUrl: deps.baseUrl });
   // Inkbox A2A (only when INKBOX_SIGNING_KEY + INKBOX_WEBHOOK_TOKEN are set): check/file over Aze's own Inkbox identity.

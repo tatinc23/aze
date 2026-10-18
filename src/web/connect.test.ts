@@ -96,9 +96,13 @@ describe("routes", () => {
     return { routes, ctx };
   }
 
-  it("GET / redirects to /connect", () => {
+  it("GET / serves the overview page, which links /connect and /dashboard", () => {
     const { routes, ctx } = harness();
-    expect(routes["GET /"](ctx("http://localhost:3400/"))).toEqual({ status: 302, to: "/connect" });
+    const r = routes["GET /"](ctx("http://localhost:3400/"));
+    expect(r.status).toBe(200);
+    expect(r.body).toContain("Waze for agents.");
+    expect(r.body).toContain('href="/connect"');
+    expect(r.body).toContain('href="/dashboard"');
   });
 
   it("GET /qr.svg returns SVG of the /connect URL", async () => {

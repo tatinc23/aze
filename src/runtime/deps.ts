@@ -18,8 +18,8 @@ export function buildRuntime(env: NodeJS.ProcessEnv, store: Store): RuntimeDeps 
   const render = createRenderer(env);
   const exec = createExecutors(env, store);
   const stripe = createStripeRail(env);
-  // Two System One models route together: SubQ Snap and, with CF credentials, a fast Workers AI model answering the
-  // same questions (SYSTEM_ONE_CF=off turns the second one off). Either alone still routes.
+  // Two System One models can route together: SubQ Snap and, with CF credentials and SYSTEM_ONE_CF=on (opt-in), a fast
+  // Workers AI model answering the same questions. Either alone still routes.
   const cfOne = createWorkersAiSystemOne(env);
   const voters: Voter[] = [
     ...(subq.router ? [{ label: "SubQ Snap", router: subq.router, priced: true }] : []),

@@ -109,14 +109,15 @@ describe("factories over Workers AI", () => {
 
 describe("buildRuntime chat backend", () => {
   const store = new MemoryStore();
-  it("default: args/distiller/notes on Workers AI even without a SubQ key; the Workers AI System One model routes alone", () => {
+  it("default: args/distiller/notes on Workers AI even without a SubQ key; the opted-in Workers AI System One model routes alone", () => {
     const fetchSpy = stubFetch(() => reply("x")).fn;
-    const rt = buildRuntime({ ...ENV }, store);
+    const rt = buildRuntime({ ...ENV, SYSTEM_ONE_CF: "on" }, store);
     expect(rt.chatBackend).toBe("workers-ai");
     expect(rt.args && rt.distiller && rt.noteWriter).toBeTruthy();
     expect(rt.router).not.toBeNull();
     expect(providersLine(rt)).toMatch(/^RUNTIME providers: router=on chat=workers-ai args=on distiller=on notes=on renderer=on/);
-    expect(buildRuntime({ ...ENV, SYSTEM_ONE_CF: "off" }, store).router).toBeNull(); // no SubQ key, second model off
+    expect(buildRuntime({ ...ENV }, store).router).toBeNull(); // no SubQ key, second model off by default
+    expect(buildRuntime({ ...ENV, SYSTEM_ONE_CF: "off" }, store).router).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

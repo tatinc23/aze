@@ -9,7 +9,8 @@ import { buildRuntime } from "../runtime/deps.js";
 import { MemoryStore } from "../store/memory.js";
 import type { Asset, Router } from "../runtime/types.js";
 
-const ENV = { CF_ACCOUNT_ID: "0123456789abcdef0123456789abcdef", CF_API_TOKEN: "cf-test-token-abcdefghijklmnop" };
+const CREDS = { CF_ACCOUNT_ID: "0123456789abcdef0123456789abcdef", CF_API_TOKEN: "cf-test-token-abcdefghijklmnop" };
+const ENV = { ...CREDS, SYSTEM_ONE_CF: "on" };
 const reply = (response: string) =>
   new Response(JSON.stringify({ success: true, errors: [], result: { response, usage: { prompt_tokens: 50, completion_tokens: 10 } } }), { status: 200 });
 
@@ -24,12 +25,18 @@ beforeEach(() => { warn = vi.spyOn(console, "warn").mockImplementation(() => {})
 afterEach(() => { vi.unstubAllGlobals(); warn.mockRestore(); });
 
 describe("systemOneConfig", () => {
+  it("is opt-in: off unless SYSTEM_ONE_CF=on", () => {
+    expect(systemOneConfig(CREDS)).toBeNull();
+    for (const v of ["off", "", "nope"]) expect(systemOneConfig({ ...CREDS, SYSTEM_ONE_CF: v })).toBeNull();
+    for (const v of ["on", "ON", "1", "true", "yes"]) expect(systemOneConfig({ ...CREDS, SYSTEM_ONE_CF: v })).not.toBeNull();
+  });
+
   it("uses a fast non-reasoning Llama with a 70B fallback; off without CF credentials or with SYSTEM_ONE_CF=off", () => {
     const cfg = systemOneConfig(ENV)!;
     expect(cfg.model).toBe(DEFAULT_SYSTEM_ONE_MODEL);
     expect(cfg.fallbackModel).toBe(DEFAULT_SYSTEM_ONE_FALLBACK);
     expect(cfg.reasoningEffort).toBeNull();
-    expect(systemOneConfig({})).toBeNull();
+    expect(systemOneConfig({ SYSTEM_ONE_CF: "on" })).toBeNull();
     expect(systemOneConfig({ ...ENV, SYSTEM_ONE_CF: "off" })).toBeNull();
     expect(systemOneConfig({ ...ENV, SYSTEM_ONE_CF_FALLBACK_MODEL: "off" })!.fallbackModel).toBeNull();
     expect(systemOneConfig({ ...ENV, SYSTEM_ONE_CF_MODEL: "not a model" })!.model).toBe(DEFAULT_SYSTEM_ONE_MODEL);

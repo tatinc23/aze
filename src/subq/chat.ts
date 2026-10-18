@@ -49,7 +49,17 @@ export interface ChatResult {
   dropped: Array<{ feature: "response_format" | "reasoning_effort"; status: number | null; excerpt: string }>;
 }
 
-export class ChatClient {
+/** What the arg filler, distiller and note writer need from a chat model: SubQ's ChatClient, or Workers AI's
+ * WorkersAiChat (src/llm/workers-ai-chat.ts) while the SubQ key lacks subq-preview (ARGS_BACKEND, src/runtime/deps.ts). */
+export interface ChatBackend {
+  /** Error-message prefix: "subq" or "workers-ai". */
+  readonly provider: string;
+  readonly model: string;
+  complete(messages: ChatMessage[], opts?: { schema?: JsonSchemaFormat | null; timeoutMs?: number; maxTokens?: number }): Promise<ChatResult>;
+}
+
+export class ChatClient implements ChatBackend {
+  readonly provider = "subq";
   /** Schema names the server refused: never sent again (per name, so one tool's odd schema can't turn JSON mode off for the rest). */
   private readonly rejectedSchemas = new Set<string>();
   private readonly acceptedSchemas = new Set<string>();
@@ -131,7 +141,7 @@ export function extractJson(text: string): Record<string, unknown> {
  * attempts. Timeouts and HTTP errors are not retried here. Errors never include the model's reply (it may hold text we
  * must not log). */
 export async function askJson<T>(
-  chat: ChatClient,
+  chat: ChatBackend,
   opts: {
     system: string; user: string; validate: (v: Record<string, unknown>) => T; timeoutMs?: number; maxTokens?: number;
     /** Strict schema for response_format json_schema; null/absent = no response_format. */
@@ -156,6 +166,11 @@ export async function askJson<T>(
       res = await chat.complete(messages, { schema: opts.schema ?? null, timeoutMs: Math.max(1, left), maxTokens: opts.maxTokens });
     } catch (e) {
       if (e instanceof SubqError) e.usage = usage;
+      else if (e instanceof Error) {
+        // A Workers AI error may already carry tokens spent inside complete() (an empty primary reply): add, don't replace.
+        const err = e as Error & { usage?: Usage };
+        err.usage = addUsage(usage, err.usage ?? ZERO_USAGE);
+      }
       throw e;
     }
     usage = addUsage(usage, res.usage);
@@ -167,7 +182,7 @@ export async function askJson<T>(
       messages.push({ role: "user", content: `That was not valid: ${lastErr.message.slice(0, 500)}. Reply again with ONLY the corrected JSON object.` });
     }
   }
-  throw new SubqError("bad_output", `subq ${chat.model} gave no valid JSON after ${tries > 1 ? "a retry" : "one try (no time left to retry)"}: ${lastErr?.message.slice(0, 300)}`, null, null, usage);
+  throw new SubqError("bad_output", `${chat.provider} ${chat.model} gave no valid JSON after ${tries > 1 ? "a retry" : "one try (no time left to retry)"}: ${lastErr?.message.slice(0, 300)}`, null, null, usage);
 }
 
 // ---------- ArgFiller ----------
@@ -232,7 +247,7 @@ export function argsFormat(asset: Asset): JsonSchemaFormat | null {
   return strict ? { name: schemaName(`args_${asset.id}`), schema: strict } : null;
 }
 
-export function createArgFiller(chat: ChatClient, opts: { timeoutMs?: number } = {}): ArgFiller {
+export function createArgFiller(chat: ChatBackend, opts: { timeoutMs?: number } = {}): ArgFiller {
   return {
     async fill(task: string, asset: Asset, prior: StepResult[]) {
       const schema = isObj(asset.input_schema) ? asset.input_schema : {};
@@ -294,7 +309,7 @@ export function factsOf(text: string): string {
   return t;
 }
 
-export function createDistiller(chat: ChatClient, opts: { timeoutMs?: number } = {}): Distiller {
+export function createDistiller(chat: ChatBackend, opts: { timeoutMs?: number } = {}): Distiller {
   return {
     async distill(task: string, raw: string) {
       const t0 = Date.now();
@@ -312,7 +327,7 @@ export function createDistiller(chat: ChatClient, opts: { timeoutMs?: number } =
         { role: "user", content: `TASK: ${task}\n\nRAW OUTPUT:\n<<<RAW\n${clip(input, MAX_RAW_CHARS)}\nRAW>>>` },
       ], { schema: DISTILL_FORMAT, timeoutMs: opts.timeoutMs ?? CHAT_TIMEOUT_MS, maxTokens: 1000 });
       const facts = clampFacts(factsOf(r.text));
-      if (!facts) throw new SubqError("bad_output", `subq ${chat.model} returned an empty distillation (finish_reason ${r.finish_reason ?? "unknown"})`, null, null, r.usage);
+      if (!facts) throw new SubqError("bad_output", `${chat.provider} ${chat.model} returned an empty distillation (finish_reason ${r.finish_reason ?? "unknown"})`, null, null, r.usage);
       return { facts, ms: Date.now() - t0, usage: r.usage };
     },
   };
@@ -366,7 +381,7 @@ export function noteFromReply(v: Record<string, unknown>, surface: string): Reco
   return note;
 }
 
-export function createNoteWriter(chat: ChatClient, opts: { timeoutMs?: number } = {}): NoteWriter {
+export function createNoteWriter(chat: ChatBackend, opts: { timeoutMs?: number } = {}): NoteWriter {
   const categoryKeys = Object.keys(DEFAULT_CATEGORIES);
   const categories = categoryKeys.join(", ");
   const format = noteFormat(categoryKeys);

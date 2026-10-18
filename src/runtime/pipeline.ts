@@ -434,8 +434,10 @@ export function createPipeline(store: RunStore | Store, runtime: RuntimeDeps, op
       answer = answer ?? facts ?? (raw ? truncateBytes(raw, RAW_FALLBACK_BYTES) : null);
     }
 
-    const pIn = price(env.SUBQ_CHAT_PRICE_IN_PER_M), pOut = price(env.SUBQ_CHAT_PRICE_OUT_PER_M);
     const rIn = price(env.RENDER_PRICE_IN_PER_M), rOut = price(env.RENDER_PRICE_OUT_PER_M);
+    // On ARGS_BACKEND=workers-ai the chat tiers run on the renderer's models, so they take the renderer's price.
+    const waiChat = runtime.chatBackend === "workers-ai";
+    const pIn = waiChat ? rIn : price(env.SUBQ_CHAT_PRICE_IN_PER_M), pOut = waiChat ? rOut : price(env.SUBQ_CHAT_PRICE_OUT_PER_M);
     const costs: Partial<Record<Tier, number | null | undefined>> = {
       snap: unreported.has("snap") ? null : tierCost(usage.snap, price(env.SNAP_PRICE_IN_PER_M) ?? SNAP_PRICE_IN_PER_M, null, true),
       args: unreported.has("args") ? null : tierCost(usage.args, pIn, pOut),

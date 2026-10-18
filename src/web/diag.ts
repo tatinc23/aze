@@ -65,7 +65,8 @@ export function providersLine(rt: RuntimeDeps): string {
   const on = (v: unknown) => (v ? "on" : "off");
   const p = rt.payments;
   const pay = !p ? "off" : `on(${[p.onSettled ? "x402-record" : null, p.registerTools || p.registerRoutes ? "card" : null].filter(Boolean).join(",") || "none"})`;
-  return `RUNTIME providers: router=${on(rt.router)} args=${on(rt.args)} distiller=${on(rt.distiller)} notes=${on(rt.noteWriter)} ` +
+  const chat = rt.chatBackend ? ` chat=${rt.chatBackend}` : "";
+  return `RUNTIME providers: router=${on(rt.router)}${chat} args=${on(rt.args)} distiller=${on(rt.distiller)} notes=${on(rt.noteWriter)} ` +
     `renderer=${on(rt.renderer)} auditor=${on(rt.auditor)} payments=${pay} diags=${rt.diags.length}`;
 }
 

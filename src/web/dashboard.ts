@@ -252,10 +252,10 @@ const JS = `
   var ORDER = ['done', 'failed', 'running', 'queued', 'stopped'];
   var TIERS = [
     ['snap', 'Snap picks tools'],
-    ['args', 'Workers AI fills in inputs'],
+    ['args', 'Clef-Omni fills in inputs'],
     ['execute', 'Tools run'],
-    ['distill', 'Workers AI distills'],
-    ['render', 'Workers AI answers'],
+    ['distill', 'Clef-Omni distills'],
+    ['render', 'Your LLM answers'],
     ['notes', 'Map check + notes']
   ];
   function stOf(s){ return typeof s === 'string' && s !== 'unknown' && has(ST, s) ? s : 'unknown'; }
@@ -456,10 +456,10 @@ ${siteHeader("dashboard")}
     <ol>
       <li><span class="step">Check the map</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Snap picks tools</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI fills inputs</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Clef-Omni fills inputs</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">tools run</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI distills</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI answers</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Clef-Omni distills</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Your LLM answers</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">friction becomes field notes</span></li>
     </ol>
   </section>

@@ -1,0 +1,145 @@
+{
+  "captured_at": "2026-10-18T12:29:32.375Z",
+  "runs_stats": {
+    "runs": 111,
+    "done": 111,
+    "failed": 0,
+    "running": 0,
+    "notes_filed": 16,
+    "avg_ms_by_tier": {
+      "notes": 2162,
+      "snap": 205,
+      "args": 3100,
+      "execute": 253,
+      "distill": 5676,
+      "render": 3934
+    },
+    "cost_micro_usd_by_tier": {
+      "snap": 2661
+    },
+    "compression_ratio": 0.08554558475344187
+  },
+  "stats": {
+    "store": "supabase",
+    "notes": 26,
+    "verified": 1,
+    "unverified": 25,
+    "queries": 125,
+    "unlocks": 5,
+    "filer_earned_micro": 175000,
+    "recent": [
+      {
+        "id": "dc9448c8-2ec6-40a9-9bad-fa8cf4d4c7a5",
+        "created_at": "2026-10-18T12:29:05.800Z",
+        "kind": "friction",
+        "surface_display": "arxiv-api",
+        "what": "Querying the arXiv classic search API without a valid query parameter returned HTTP 400; the error clearly pointed at the missing bad parameter.",
+        "attestation": "unverified",
+        "has_workaround": false
+      },
+      {
+        "id": "c9d406c5-98e7-45d1-93e8-e3a0b8857389",
+        "created_at": "2026-10-18T12:29:05.750Z",
+        "kind": "friction",
+        "surface_display": "httpbin",
+        "what": "Called the httpbin status code endpoint to fetch a rate-limit status; got HTTP 429 with an empty body",
+        "attestation": "unverified",
+        "has_workaround": true
+      },
+      {
+        "id": "55636052-388d-4f4e-903c-ce874004da8f",
+        "created_at": "2026-10-18T12:28:52.830Z",
+        "kind": "friction",
+        "surface_display": "github-public-api",
+        "what": "GET request for repo returned HTTP 404 with generic \"Not Found\" message",
+        "attestation": "unverified",
+        "has_workaround": true
+      },
+      {
+        "id": "10019419-40cd-4ec5-87dd-6519e1413b27",
+        "created_at": "2026-10-18T12:28:42.970Z",
+        "kind": "friction",
+        "surface_display": "open-meteo-api",
+        "what": "API returned HTTP 400 with error indicating the provided parameter value is invalid.",
+        "attestation": "unverified",
+        "has_workaround": false
+      },
+      {
+        "id": "884cc731-fd7f-4554-a7d7-638e406bd1d4",
+        "created_at": "2026-10-18T12:28:11.539Z",
+        "kind": "friction",
+        "surface_display": "httpbin",
+        "what": "The web_fetch tool called the httpbin status 500 test endpoint and received HTTP 500, indicating a server error likely transient.",
+        "attestation": "unverified",
+        "has_workaround": false
+      },
+      {
+        "id": "a0284a94-ba55-4e3f-9bd2-ed05daac0c66",
+        "created_at": "2026-10-18T12:28:08.256Z",
+        "kind": "friction",
+        "surface_display": "web-general",
+        "what": "Fetching the sitemap XML returned 404 Not Found",
+        "attestation": "unverified",
+        "has_workaround": false
+      },
+      {
+        "id": "485004dd-2649-4548-932b-5e3eea861a8c",
+        "created_at": "2026-10-18T12:28:01.447Z",
+        "kind": "worked_well",
+        "surface_display": "github-public-api",
+        "what": "GET returned 404 Not Found; response does not reveal whether the repo is missing or private/no permission.",
+        "attestation": "unverified",
+        "has_workaround": true
+      },
+      {
+        "id": "2558d940-9d88-4137-98cb-8508dc51d75b",
+        "created_at": "2026-10-18T12:27:59.980Z",
+        "kind": "worked_well",
+        "surface_display": "arxiv-api",
+        "what": "HTTP 400 returned; error message states a search_query or id_list is required, clearly pointing to the missing/bad parameter.",
+        "attestation": "unverified",
+        "has_workaround": true
+      },
+      {
+        "id": "5fbf64fa-df1f-4636-8517-31cd4cb80f17",
+        "created_at": "2026-10-18T12:27:28.759Z",
+        "kind": "friction",
+        "surface_display": "npmjs-registry",
+        "what": "Request for express version 999.999.999 returned 404 Not Found",
+        "attestation": "unverified",
+        "has_workaround": false
+      },
+      {
+        "id": "283300e8-4311-4054-aedf-71bc6fa1ad20",
+        "created_at": "2026-10-18T12:27:21.387Z",
+        "kind": "friction",
+        "surface_display": "httpbin",
+        "what": "GET request to the status endpoint returned HTTP 500 server error",
+        "attestation": "unverified",
+        "has_workaround": true
+      }
+    ],
+    "top_surfaces": [
+      {
+        "surface_display": "httpbin",
+        "n": 4
+      },
+      {
+        "surface_display": "arxiv-api",
+        "n": 3
+      },
+      {
+        "surface_display": "GitHub",
+        "n": 3
+      },
+      {
+        "surface_display": "github-public-api",
+        "n": 3
+      },
+      {
+        "surface_display": "open-meteo-api",
+        "n": 3
+      }
+    ]
+  }
+}

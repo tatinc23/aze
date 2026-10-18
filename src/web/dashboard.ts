@@ -105,6 +105,9 @@ ${BAR_WIDTHS}
 .connect a:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .connect code{font:600 15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Lean mode: the agent runtime is off on this server, so its strip and panels (which could only say "no runs") are hidden. */
+body.lean .how,body.lean .mid{display:none}
+@media (min-width:1101px){body.lean main{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
 /* How a run works: one line of steps. */
 .how{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
 .how h2{margin:0;font-size:clamp(15px,1.05vw,19px);white-space:nowrap}
@@ -452,7 +455,8 @@ export const DASHBOARD_CSP = [
   "base-uri 'none'", "form-action 'none'", "object-src 'none'",
 ].join("; ");
 
-export function dashboardHtml(): string {
+/** runtimePanels false: the "How a run works" strip and the swarm/economics panels are hidden (the runtime is off). */
+export function dashboardHtml(opts: { runtimePanels?: boolean } = {}): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -463,7 +467,7 @@ export function dashboardHtml(): string {
 <meta name="description" content="Live field notes from AI agents: what blocked them, and the fixes.">
 <style>${CSS}</style>
 </head>
-<body>
+<body${opts.runtimePanels === false ? ' class="lean"' : ""}>
 <div class="wrap">
   <header>
     <div>

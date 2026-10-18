@@ -15,6 +15,13 @@ import { createWallets } from "../swarm/wallets.js";
 describe("dashboardHtml", () => {
   const html = dashboardHtml();
 
+  it("lean mode (runtime off) hides the run strip and the swarm/economics panels; the default shows them", () => {
+    expect(html).toContain("<body>");
+    const lean = dashboardHtml({ runtimePanels: false });
+    expect(lean).toContain('<body class="lean">');
+    expect(lean).toContain("body.lean .how,body.lean .mid{display:none}");
+  });
+
   it("polls the live endpoints: every 3 s while a swarm runs, else 5 s", () => {
     expect(html).toContain("/api/stats");
     expect(html).toContain("/api/scores");

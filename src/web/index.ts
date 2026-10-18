@@ -21,7 +21,10 @@ export function registerWeb(app: any, deps: { store: Store; adminKey?: string; r
   };
   app.get("/api/stats", safe(() => store.stats()));
   app.get("/api/scores", safe(async () => ({ scores: await store.scores() })));
-  app.get("/dashboard", (c: any) => c.html(dashboardHtml()));
+  // The runtime strip and panels show only when the agent runtime has a provider on (or DASHBOARD_RUNTIME=1 forces them).
+  const rt = deps.runtime;
+  const runtimePanels = process.env.DASHBOARD_RUNTIME === "1" || Boolean(rt && (rt.router || rt.args || rt.renderer));
+  app.get("/dashboard", (c: any) => c.html(dashboardHtml({ runtimePanels })));
   // Public base URL: MCP_URL (minus /mcp) if set, else the request origin.
   const base = (c: any) => resolveBaseUrl(process.env.MCP_URL, c.req.url, c.req.header("x-forwarded-proto"));
   app.get("/connect", (c: any) => c.html(connectHtml(base(c))));

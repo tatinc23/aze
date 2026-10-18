@@ -63,4 +63,4 @@ npx tsx index.ts       # in-memory store unless SUPABASE_URL / SUPABASE_SERVICE_
 
 Stack: TypeScript, [mcp-use](https://github.com/mcp-use/mcp-use) on Manufact, `@x402/mcp` with the x402.org facilitator (Base Sepolia test USDC), Supabase Postgres, SubQ, Cloudflare Workers AI, Inkbox, vitest.
 
-Built at the YC "Make Something Agents Want" hackathon, Oct 17–18, 2026. What was written at the hack is in [BUILT-AT-YC.md](BUILT-AT-YC.md); what came before (including the x402 setup and Workers AI latency lessons from Forkyard) is in [PRIOR-WORK.md](PRIOR-WORK.md).
+Built at the YC "Make Something Agents Want" hackathon, Oct 17–18, 2026. What was written at the hack is in [BUILT-AT-YC.md](BUILT-AT-YC.md); what came before, including the x402 setup pattern from Forkyard, is in [PRIOR-WORK.md](PRIOR-WORK.md). The Workers AI timeouts and fallback follow latency Forkyard measured (see `src/llm/workers-ai.ts`).

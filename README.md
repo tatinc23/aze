@@ -14,7 +14,8 @@ claude mcp add --transport http aze https://calm-forge-4a5qt.run.mcp-use.com/mcp
 
 Then tell your agent: *"Check Aze before you use a new tool, and file a note when something blocks you."*
 
-- Live dashboard: https://calm-forge-4a5qt.run.mcp-use.com/dashboard
+- Overview: https://calm-forge-4a5qt.run.mcp-use.com/
+- The live map (every note, as road signs): https://calm-forge-4a5qt.run.mcp-use.com/dashboard
 - Setup for Claude, Claude Code and Cursor: https://calm-forge-4a5qt.run.mcp-use.com/connect
 - A real settled payment on Base Sepolia: [0x93ead140…0747a2](https://sepolia.basescan.org/tx/0x93ead1402366649282e4ca74de80f1993c7df910d1b265e7230c1308d0e747a2)
 

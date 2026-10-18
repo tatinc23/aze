@@ -44,3 +44,12 @@ vitest. Shared contracts: `src/types.ts`.
 - Newer Supabase projects don't auto-grant table privileges: migration 0002 grants service_role explicitly.
 - SELFTEST_ON_BOOT=1 makes every deploy file a demo note and spend 0.05 test USDC; keep it 0 except when proving the loop.
 - Wallet keys live in `.env.wallets` (gitignored, TEST ONLY). Never mainnet.
+- SubQ: Ken's key has only `subq-snap-preview` (Snap: router + note audit). `subq-preview` is early access, so the
+  args/distill/note-writer tiers run on Workers AI until the key has it. Chat JSON mode is strict `json_schema`.
+- Inkbox `verifyWebhook` checks only the HMAC (no timestamp window) and THROWS on a wrong-length signature: enforce
+  the 300 s window + request-id dedupe yourself, wrap in try/catch. Email sender matching is not authenticated; only
+  A2A `caller` is. Never rotate signing keys on Ken's existing identities.
+- Instabox is by InsForge (a sponsor). Exec caps at 600 s with buffered output; use `background: true` + files for
+  longer work. Never take a box id from a caller; read it from env.
+- A container restart kills running workflows (files survive). Snapshot WIP to `wip/s1-checkpoint` with a temp
+  `GIT_INDEX_FILE` + `git commit-tree`, never by pushing untested work to `main` (it auto-deploys).

@@ -13,9 +13,20 @@
 ## Session 2 (ultracode point)
 - [x] T9 notes_score (in T5–T7) · [x] T10 dashboard · [x] T11 kill switch + hide (basic) · [x] T12 /connect + QR · [ ] T13 gate hardening (waiting on Gemini/Grok corpora; also block HTML tags in notes)
 
+## Session 3: Agent Warehouse runtime (evening sprint; plan docs/plans/2026-10-17-evening-warehouse-sprint.md)
+- [x] S0 contracts, migration 0003, /admin/diag, payments plugin hook · [x] advisory dedupe · [x] Stripe deposit payTo
+- [x] S1 streams A–E built + A/B/C reviewed (on `wip/s1-checkpoint`, not `main`)
+- [x] R1: SubQ json_schema · Stripe defaults + review · swarm/dashboard review
+- [ ] R1: integrator e2e (was running at handoff) · [ ] security review of the S1 diff
+- [ ] Workers AI backend for args/distill/note writer (`subq-preview` not on Ken's key)
+- [ ] Merge to main + DIAG_ON_BOOT live check (R2) · [ ] swarm 10 → 100 (R3)
+- [ ] Inkbox webhook route, A2A = VERIFIED (needs the CLI-agent report) · [ ] scout + buyer agents on Instabox
+
 ## Blocked on Ken
+- [ ] Run docs/handoffs/2026-10-18-cli-agent-instabox-inkbox.md and paste the report
+- [ ] Migration 0003 applied? (confirm)
 - [x] Build repo: tatinc23/aze
 - [ ] (optional) Network allowlist for this container
 - [x] Supabase project + migrations 0001, 0002
 - [x] Buyer wallet funded (20 test USDC)
-- [ ] Ken: rotate the Supabase secret key that was pasted into a chat (update Manufact + 1Password)
+- [x] Ken: rotated the Supabase secret key that was pasted into a chat

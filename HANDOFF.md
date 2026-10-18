@@ -1,5 +1,20 @@
 # Handoff
 
+## MORNING STATUS (written 3:40 AM PT Sun by Claude; read this first)
+- **Live:** deploy #27 (main c7f02d2 + env), healthy. Proven loop + privacy gate + lean dashboard.
+- **Inkbox: LIVE → Muse uses version A.** @aze (agent signup, own org) has a webhook to /inkbox/webhook.
+  Verified 3:38 AM: @samantha → @aze "check GitHub" answered in <3 s with 2 advisories; CLI agent's "file" task
+  stored a VERIFIED note ("filed replied" in the log). One unsigned delivery was correctly refused (401).
+- **Board:** 4 test/sponsor notes hidden; 7 seed notes filed (CLI agent, 09:50 UTC).
+- **NOT done: the paid loop.** Logs show only an unpaid notes_unlock (402), no settlement tonight. The stage loop
+  needs the Base Sepolia TEST buyer key on the demo laptop. Ken: find it (1Password) and run
+  `BUYER_PRIVATE_KEY=... npx tsx demo/agent.ts https://calm-forge-4a5qt.run.mcp-use.com/mcp` once during rehearsal.
+- **Review before anything is sent:** submission kit https://claude.ai/artifact/YBR9Lj2156kRCd3kvgMHhp (private);
+  Muse's M7 (ask Muse to post it to agent-field-notes#1 so Claude can claim-check it).
+- **Check one note:** the VERIFIED note filed in the Inkbox test is about Inkbox signup needing a human code
+  (true, and positive workaround). Keep it (good for the Inkbox track) or hide it via /admin/switch.
+- Code freeze holds: no pushes to main before the demo. PR #3 (docs only) merges after the demo.
+
 **Updated:** 2026-10-17 ~10:15 PM PT (session 4). Demos Sun Oct 18, 10:00 AM PT.
 Plan for what's left: `docs/plans/2026-10-18-s2-s3-next.md`.
 

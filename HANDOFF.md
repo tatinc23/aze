@@ -1,5 +1,10 @@
 # Handoff
 
+## 8:26 AM PT Sun: hard rules until the demo (coordinator, Ken approved)
+No pushes to main (branch + PR, Ken merges). After the 8:30 freeze, no merges or env changes on production.
+SYSTEM_ONE_CF=off on purpose; leave it off. PR #6 (inkbox_send allowlist via INKBOX_SEND_ALLOW, Instabox box id
+from INSTABOX_BOX_ID only) is open and merges after the demo. Both executors are still stubs.
+
 ## MORNING STATUS (written 3:40 AM PT Sun by Claude; read this first)
 - **Live:** deploy #27 (main c7f02d2 + env), healthy. Proven loop + privacy gate + lean dashboard.
 - **Inkbox: LIVE → Muse uses version A.** @aze (agent signup, own org) has a webhook to /inkbox/webhook.

@@ -38,11 +38,11 @@ Each tier is optional and has a deterministic fallback. A run has a soft 120 s d
 
 | Tier | Model | Job |
 |---|---|---|
-| 1 · decide | Two System One models: SubQ Snap (`subq-snap-preview`) and Llama 3.1 8B Fast on Workers AI | Route each task to a tool: both models answer the same yes/no per tool in parallel, their probabilities are averaged (keep p ≥ 0.5, top 3), and either one alone still routes if the other fails. Snap also audits filed notes (shadow mode) |
+| 1 · decide | SubQ Snap (`subq-snap-preview`), a System One decision model | Route each task to a tool (one yes/no per tool, keep p ≥ 0.5, top 3) and audit filed notes (shadow mode). A second voter (Llama 3.1 8B Fast on Workers AI, averaged with Snap) is built but off (`SYSTEM_ONE_CF=off`) until its self-reported probabilities are calibrated against Snap's |
 | 2 · structure | GLM-5.3 Flash on Workers AI | Fill tool args, distill raw pages to facts, draft notes as validated JSON |
 | 3 · answer | GLM-5.3 Flash, falling back to gpt-oss-120b, on Workers AI | A short, facts-only answer that cites its sources |
 
-Every run starts by checking Aze and ends by filing what it hit through `notes_file`, so the next agent reads what this one learned. Agents don't message each other; they coordinate through the notes.
+Every run starts by checking Aze and ends by filing what it hit through `notes_file`, so the next agent reads what this one learned. Swarm agents don't message each other; they coordinate through the notes.
 
 **First production swarm (Oct 18, 2026, test mode):** 111 runs (1 + 10 + 100 agents), all completed, 0 failed. Swarm agents filed 16 notes through the gate. Total SubQ Snap cost for all 111 runs: $0.0027. Average time per tier: Snap 0.2 s, args 3.1 s, execute 0.25 s, distill 5.7 s, render 3.9 s. GLM-5.3 Flash hit Workers AI's per-minute rate limit repeatedly, and the gpt-oss-120b fallback took over.
 
@@ -50,13 +50,13 @@ Every run starts by checking Aze and ends by filing what it hit through `notes_f
 
 Live: the four tools, the privacy gate, the x402 paywall and 70/30 ledger, the dashboard and connect page, `@aze` on Inkbox A2A, and the agent runtime and swarm runner. Test mode only: no real money moves.
 
-Not yet: the SubQ chat tier (Tier 2 runs on Workers AI until then) and a Stripe card unlock. Agent-to-agent messaging is live: Inkbox agents message @aze over A2A, and notes filed that way are marked verified.
+Not yet: the SubQ chat tier (Tier 2 runs on Workers AI until then), messaging between swarm agents, and a Stripe card unlock. Any Inkbox agent can already message `@aze` over A2A, and notes filed that way are marked verified.
 
 ## Run it locally
 
 ```bash
 npm ci
-npm test               # 735 tests
+npm test               # 745 tests
 npx tsc --noEmit
 npx tsx index.ts       # in-memory store unless SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are set
 ```

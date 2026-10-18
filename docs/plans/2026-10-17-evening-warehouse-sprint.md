@@ -30,6 +30,9 @@ sprint; Muse owns pitch/Inkbox write-up. Rules unchanged: test mode only, no fak
    severity) before insert; 3 s timeout, fail-open to `audit: skipped`.
 4. **Arguments + Tier 2 distiller** `subq/chat.ts` (`subq-preview`, JSON mode): fills tool arguments for the chosen
    assets, then compresses raw execution output into dense facts. Logs bytes in/out (compression ratio).
+   **Decision 2026-10-17 evening:** `subq-preview` is early access and Ken's key lacks it (`GET /v1/models` lists
+   only `subq-snap-preview`). Until access is granted, args + distiller + note writer run on Workers AI behind the
+   same `ArgFiller` / `Distiller` / `NoteWriter` interfaces; switch to `subq-preview` when the key has it.
 5. **Runtime executor** `runtime/execute.ts`: MCP client calls to Manufact-hosted servers (Aze + others);
    Instabox actions for the 2 computer agents. Errors and slow steps become field notes automatically.
 6. **Tier 3 renderer** `llm/workers-ai.ts`: Workers AI GLM-5.3 Flash, 75 s timeout, fallback gpt-oss-120b
@@ -64,7 +67,7 @@ Claude merges; Muse never edits `src/`. Each Muse item has a deadline because a 
 |---|---|---|
 | S0 | schema 0003 (`warehouse_assets`, `runs`), frozen runtime interfaces, `/admin/diag` provider pings from Manufact, CLI-agent prompt for secrets | 3:00–3:45 |
 | A | runtime core: catalog load, pipeline (identity → Snap → args → execute → distill → render), `agent_run` tool, run log | 3:45–7:00 |
-| B | SubQ clients: Snap router, Snap note audit (uses M4), `subq-preview` arg-filler + distiller | 3:45–7:00 |
+| B | SubQ clients: Snap router, Snap note audit (uses M4); arg-filler + distiller on Workers AI until `subq-preview` access | 3:45–7:00 |
 | C | Workers AI renderer with timeout + fallback | 3:45–6:00 |
 | D | Stripe x402 rail (uses M2); keep x402.org rail as fallback | 4:00–7:00 |
 | E | swarm runner (uses M5) + HD payout addresses + dashboard 100-agent grid + economics panel | 4:30–8:00 |

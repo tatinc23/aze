@@ -39,8 +39,13 @@ Base URL `https://api.subq.ai/v1`; headers `Authorization: Bearer $SUBQ_API_KEY`
   Root must be object; every property in `required`; `additionalProperties:false` on each object; types string/number/boolean/integer/enum/array/object.
 - Response: `choices[0].message.content`, `usage.prompt_tokens/completion_tokens/total_tokens`.
 - Pricing for `subq-preview`: NOT documented (keep cost null).
+- Models page (docs.subq.ai/using-the-api/models): status **Early access**; endpoints Chat Completions **and Responses**;
+  text in/out; features **Files** (file inputs) and **Function calling**. Snap: public preview, Decisions only, text +
+  image input, $0.05 / 1M input, output free.
 
 ### Models: `GET /v1/models` (OpenAI list shape). Docs example ids: `subq-preview`, `subq-snap-preview`; availability is per key.
+- Live check 2026-10-17 with Ken's key: HTTP 200, `["subq-snap-preview"]` only; `subq-preview` NOT available.
+- Credits: a request with no credits returns `402` (quickstart); `/v1/models` succeeding does not prove credits.
 
 ## M2 Stripe x402 (stripe-samples/machine-payments + https://docs.stripe.com/payments/machine/x402)
 - Pay-to: `POST /v1/crypto/deposit_addresses`, `network=base`, preview version (`2026-07-29.preview` in current docs). Static payTo.
@@ -53,3 +58,6 @@ Base URL `https://api.subq.ai/v1`; headers `Authorization: Bearer $SUBQ_API_KEY`
   payment_method_types:["crypto"], payment_method_options:{crypto:{mode:"transaction_verification", transaction_verification_options:{network:"base", transaction_hash}}}}, {idempotencyKey: txHash})`.
 - No webhooks.
 - => In sandbox use `network: "base"` (not "base_sepolia") for both the deposit address and transaction_verification.
+- Live 2026-10-17: sandbox `POST /v1/crypto/deposit_addresses network=base` succeeded with no approval step
+  (`livemode:false`). Address `0x3b0b371ae3cb08f272b87319684f6518b3b313a0` set as `STRIPE_DEPOSIT_ADDRESS` on Manufact
+  (production) with `STRIPE_X402_NETWORK=base`.

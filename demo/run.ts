@@ -16,13 +16,15 @@ async function usdcBalance(address: `0x${string}`): Promise<string> {
   } catch (e) { return `unknown (${(e as Error).message.slice(0, 80)})`; }
 }
 
+// A public, well-known wall (no sponsor named): GitHub's unauthenticated REST limit.
 export const DEMO_NOTE = {
   kind: "barrier",
-  category: "signup",
-  surface: "Inkbox",
-  what: "Signup blocks on a 6-digit code sent to a human inbox, so an unattended agent cannot finish creating its identity.",
-  tool: "signup form",
-  workaround: "Ask your human for the 6-digit code once at the start, finish signup, then reuse the session; do not retry signup in a loop (it re-sends codes and rate-limits).",
+  category: "rate-limit",
+  surface: "GitHub",
+  what: "The REST API returned 403 rate limit exceeded after about 60 unauthenticated requests in an hour, so the agent stalled mid-task.",
+  tool: "REST API",
+  error: "403 API rate limit exceeded",
+  workaround: "Send a token (the authenticated limit is far higher), and use conditional requests with ETag or If-None-Match: a 304 Not Modified does not count against the limit. Check the x-ratelimit-remaining header before each burst.",
 };
 
 const parse = (r: any) => {

@@ -8,6 +8,7 @@ import { buildEnvelope, formatUsdc } from "./advise/index.js";
 import { split } from "./pay/split.js";
 import type { createPaywall } from "./pay/index.js";
 import { registerWeb } from "./web/index.js";
+import { registerInkbox } from "./inkbox/index.js";
 import type { RuntimeDeps } from "./runtime/types.js";
 import { createLimiter, registerRuntimeTools } from "./runtime/tools.js";
 
@@ -176,6 +177,8 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
   if (runtime) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl });
   runtime?.payments?.registerTools?.(server, { store });
   registerWeb((server as any).app, { store, adminKey: deps.adminKey, runtime, baseUrl: deps.baseUrl });
+  // Inkbox A2A (only when INKBOX_SIGNING_KEY + INKBOX_WEBHOOK_TOKEN are set): check/file over Aze's own Inkbox identity.
+  registerInkbox((server as any).app, process.env, { store, runtime, settingsOf, mcpUrl: deps.baseUrl });
   return server;
 }
 

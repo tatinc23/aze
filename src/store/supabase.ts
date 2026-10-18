@@ -1,10 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   DEFAULT_SETTINGS,
-  type Attestation, type CleanNote, type Kind, type Match, type Settings, type Stats, type Store, type StoredNote,
+  type Attestation, type CleanNote, type Kind, type Match, type NoteAudit, type Settings, type Stats, type Store, type StoredNote,
   type SurfaceScore, type UnlockRecord,
 } from "../types.js";
-import { clampLimit, pickNote, surfaceScores } from "./memory.js";
+import { clampLimit, pickAudit, pickNote, surfaceScores } from "./memory.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -34,8 +34,12 @@ function toNote(r: Row): StoredNote {
     tier: "experiment",
     visibility: "public",
     hidden: Boolean(r.hidden),
+    audit: pickAudit(r.audit),
   };
 }
+
+/** PostgREST's error when notes.audit does not exist yet (migration 0003 not applied). */
+const MISSING_AUDIT_COLUMN = /audit.*(column|schema cache)|column.*audit/i;
 
 function check<T>(res: { data: T; error: { message: string } | null }, what: string): T {
   if (res.error) throw new Error(`supabase ${what}: ${res.error.message}`);
@@ -50,11 +54,16 @@ export class SupabaseStore implements Store {
     this.db = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
   }
 
-  async insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null }): Promise<StoredNote> {
-    const row = check(
-      await this.db.from("notes").insert({ ...pickNote(note), attestation: meta.attestation }).select("*").single(),
-      "insert note",
-    ) as Row;
+  async insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null; audit?: NoteAudit | null }): Promise<StoredNote> {
+    const base: Row = { ...pickNote(note), attestation: meta.attestation };
+    const audit = pickAudit(meta.audit);
+    let res = await this.db.from("notes").insert(audit ? { ...base, audit } : base).select("*").single();
+    if (audit && res.error && MISSING_AUDIT_COLUMN.test(res.error.message)) {
+      // Filing must keep working before migration 0003 lands; the audit is advisory metadata.
+      console.warn("[store] notes.audit column missing (apply migration 0003); saving the note without its audit");
+      res = await this.db.from("notes").insert(base).select("*").single();
+    }
+    const row = check(res, "insert note") as Row;
     const stored = toNote(row);
     if (meta.payout_address) {
       const res = await this.db.from("note_payouts").insert({ note_id: stored.id, payout_address: meta.payout_address });

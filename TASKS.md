@@ -17,9 +17,9 @@
 - [x] S0 contracts, migration 0003, /admin/diag, payments plugin hook · [x] advisory dedupe · [x] Stripe deposit payTo
 - [x] S1 streams A–E built + A/B/C reviewed (on `wip/s1-checkpoint`, not `main`)
 - [x] R1: SubQ json_schema · Stripe defaults + review · swarm/dashboard review
-- [ ] R1: integrator e2e (was running at handoff) · [ ] security review of the S1 diff
-- [ ] Workers AI backend for args/distill/note writer (`subq-preview` not on Ken's key)
-- [ ] Merge to main + DIAG_ON_BOOT live check (R2) · [ ] swarm 10 → 100 (R3)
+- [x] R1: integrator e2e (had landed in the snapshot) · [x] security review of the S1 diff + fixes (PR #1)
+- [x] Workers AI backend for args/distill/note writer (`ARGS_BACKEND`, default workers-ai)
+- [ ] Merge PR #1 to main (Ken) + DIAG_ON_BOOT live check (R2) · [ ] Ken: set RUNTIME_ACCESS_KEY for agent_run · [ ] swarm 10 → 100 (R3)
 - [ ] Inkbox webhook route, A2A = VERIFIED (needs the CLI-agent report) · [ ] scout + buyer agents on Instabox
 
 ## Blocked on Ken

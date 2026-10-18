@@ -238,3 +238,55 @@ describe("createStore", () => {
     expect(s.kind).toBe("supabase");
   });
 });
+
+describe("MemoryStore audit (Snap note audit, optional)", () => {
+  const audit = {
+    status: "ok" as const, p_private: 0.04, p_real_issue: 0.93, category: "auth", severity: 3, model: "subq-snap-preview", ms: 412, reason: null,
+  };
+
+  it("keeps the audit on the note and returns it from insert, getNote and findMatches", async () => {
+    const s = new MemoryStore();
+    const n = await s.insertNote(note(), { ...unverified, audit });
+    expect(n.audit).toEqual(audit);
+    expect((await s.getNote(n.id))!.audit).toEqual(audit);
+    expect((await s.findMatches({ surface: "inkbox" }, 5))[0].note.audit).toEqual(audit);
+  });
+
+  it("stores null when no audit is given (absent or explicit null)", async () => {
+    const s = new MemoryStore();
+    expect((await s.insertNote(note(), unverified)).audit).toBeNull();
+    expect((await s.insertNote(note(), { ...unverified, audit: null })).audit).toBeNull();
+  });
+
+  it("keeps exactly the NoteAudit fields and drops malformed audits", async () => {
+    const s = new MemoryStore();
+    const sneaky = { ...audit, raw: "model output", note_text: "x" } as unknown as typeof audit;
+    const n = await s.insertNote(note(), { ...unverified, audit: sneaky });
+    expect(Object.keys(n.audit!).sort()).toEqual(Object.keys(audit).sort());
+    const bad = await s.insertNote(note(), { ...unverified, audit: { status: "maybe" } as unknown as typeof audit });
+    expect(bad.audit).toBeNull();
+  });
+
+  it("returns copies of the audit too", async () => {
+    const s = new MemoryStore();
+    const n = await s.insertNote(note(), { ...unverified, audit });
+    n.audit!.status = "rejected";
+    expect((await s.getNote(n.id))!.audit!.status).toBe("ok");
+  });
+});
+
+describe("pickAudit", () => {
+  it("accepts the jsonb object or its JSON text and nulls anything else", async () => {
+    const { pickAudit } = await import("./memory.js");
+    const a = { status: "skipped", p_private: null, p_real_issue: null, category: null, severity: null, model: "m", ms: 3001, reason: "snap_timeout" };
+    expect(pickAudit(a)).toEqual(a);
+    expect(pickAudit(JSON.stringify(a))).toEqual(a);
+    expect(pickAudit(null)).toBeNull();
+    expect(pickAudit(undefined)).toBeNull();
+    expect(pickAudit("not json")).toBeNull();
+    expect(pickAudit([a])).toBeNull();
+    expect(pickAudit({ status: "ok", p_private: "0.5", ms: "x" })).toEqual({
+      status: "ok", p_private: null, p_real_issue: null, category: null, severity: null, model: null, ms: 0, reason: null,
+    });
+  });
+});

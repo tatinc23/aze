@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   DEFAULT_SETTINGS,
-  type Attestation, type CleanNote, type Kind, type Match, type Settings, type Stats, type Store, type StoredNote,
+  type Attestation, type CleanNote, type Kind, type Match, type NoteAudit, type Settings, type Stats, type Store, type StoredNote,
   type SurfaceScore, type UnlockRecord,
 } from "../types.js";
 
@@ -32,6 +32,25 @@ export function pickNote(n: CleanNote): CleanNote {
     kind: n.kind, category: n.category, surface: n.surface, surface_display: n.surface_display, what: n.what,
     tool: n.tool ?? null, error_class: n.error_class ?? null, tokens_spent: n.tokens_spent ?? null,
     dollars_spent: n.dollars_spent ?? null, workaround: n.workaround ?? null, teaser: n.teaser ?? null, wish: n.wish ?? null,
+  };
+}
+
+const AUDIT_STATUS = new Set(["ok", "rejected", "skipped"]);
+const auditNum = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const auditStr = (v: unknown): string | null => (typeof v === "string" ? v : null);
+
+/** Exactly the NoteAudit fields, or null when absent/malformed (accepts the jsonb column's object or its JSON text). */
+export function pickAudit(a: unknown): NoteAudit | null {
+  if (typeof a === "string") {
+    try { a = JSON.parse(a); } catch { return null; }
+  }
+  if (typeof a !== "object" || a === null || Array.isArray(a)) return null;
+  const r = a as Record<string, unknown>;
+  if (typeof r.status !== "string" || !AUDIT_STATUS.has(r.status)) return null;
+  return {
+    status: r.status as NoteAudit["status"], p_private: auditNum(r.p_private), p_real_issue: auditNum(r.p_real_issue),
+    category: auditStr(r.category), severity: auditNum(r.severity), model: auditStr(r.model), ms: auditNum(r.ms) ?? 0,
+    reason: auditStr(r.reason),
   };
 }
 
@@ -78,7 +97,7 @@ export class MemoryStore implements Store {
     return [...notes].sort((a, b) => b.created_at.localeCompare(a.created_at) || order.get(b.id)! - order.get(a.id)!);
   }
 
-  async insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null }): Promise<StoredNote> {
+  async insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null; audit?: NoteAudit | null }): Promise<StoredNote> {
     const stored: StoredNote = {
       ...pickNote(note),
       id: randomUUID(),
@@ -88,6 +107,7 @@ export class MemoryStore implements Store {
       tier: "experiment",
       visibility: "public",
       hidden: false,
+      audit: pickAudit(meta.audit),
     };
     this.notes.push(stored);
     if (meta.payout_address) this.payouts.set(stored.id, meta.payout_address);

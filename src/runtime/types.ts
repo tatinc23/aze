@@ -163,4 +163,6 @@ export interface RuntimeDeps {
   executors: Partial<Record<ExecutorKind, Executor>>;
   diags: ProviderDiag[];
   payments: PaymentsPlugin | null;
+  /** Which chat model backs args / distiller / notes (ARGS_BACKEND); shown on the RUNTIME providers line. */
+  chatBackend?: "workers-ai" | "subq";
 }

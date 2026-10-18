@@ -85,6 +85,15 @@ const QUOTED = /"([^"]+)"|“([^”]+)”|‘([^’]+)’|(?<!\w)'((?:[^']|(?<=\
 // What we scan is exactly what we store: NFKC folds look-alikes (fullwidth @, etc.), invisible characters (zero-width,
 // bidi controls, tag characters used for smuggling) are removed so they cannot split an identifier or hide text, and
 // control characters (NUL breaks Postgres text) become spaces. Newlines and tabs are kept.
+/** Identifier classes masked in model text shown publicly (a rendered answer). URLs stay: answers cite sources. */
+export const PUBLIC_MASK_RULES = ["email", "ipv4", "handle"] as const;
+/** Replace each match of the given gate detectors with "[rule]". */
+export function maskIdentifiers(text: string, rules: readonly string[] = PUBLIC_MASK_RULES): string {
+  let t = text;
+  for (const [rule, re] of DETECTORS) if (rules.includes(rule)) t = t.replace(re, `[${rule}]`);
+  return t;
+}
+
 function clean(raw: string): string {
   return raw
     .normalize("NFKC")

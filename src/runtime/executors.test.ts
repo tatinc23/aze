@@ -61,7 +61,7 @@ describe("createExecutors", () => {
 
   it("instabox/inkbox say 'not configured' without friction", async () => {
     for (const k of ["instabox", "inkbox"] as const) {
-      expect(await built.executors[k]!.execute(asset(k === "instabox" ? "instabox_exec" : "inkbox_send"), {}, ctx)).toMatchObject({ ok: false, error: "not configured", friction: false });
+      expect(await built.executors[k]!.execute(asset(k === "instabox" ? "instabox_exec" : "inkbox_inbox"), {}, ctx)).toMatchObject({ ok: false, error: "not configured", friction: false });
     }
   });
 });

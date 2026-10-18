@@ -90,6 +90,41 @@ const notConfigured = (): Executor => ({
   },
 });
 
+const refuse = (asset: Asset, error: string): StepResult => ({ asset_id: asset.id, ok: false, output: "", ms: 0, error, friction: false });
+
+/** INKBOX_SEND_ALLOW: comma-separated recipient handles (leading @ and case ignored). Empty or unset = no send. */
+export function sendAllowlist(env: NodeJS.ProcessEnv): Set<string> {
+  return new Set((env.INKBOX_SEND_ALLOW ?? "").split(",").map((h) => h.trim().replace(/^@/, "").toLowerCase()).filter(Boolean));
+}
+
+/** inkbox_send only reaches allowlisted recipients. A refusal logs the rule, never the recipient or the text. */
+export function guardInkboxSend(inner: Executor, env: NodeJS.ProcessEnv): Executor {
+  const allow = sendAllowlist(env);
+  return {
+    async execute(asset: Asset, args: Record<string, unknown>, ctx: AgentContext): Promise<StepResult> {
+      if (asset.id !== "inkbox_send") return inner.execute(asset, args, ctx);
+      const to = typeof args.to === "string" ? args.to.trim().replace(/^@/, "").toLowerCase() : "";
+      if (!allow.size || !allow.has(to)) {
+        console.warn(`INKBOX send refused: ${allow.size ? "recipient not in INKBOX_SEND_ALLOW" : "INKBOX_SEND_ALLOW unset"}`);
+        return refuse(asset, "recipient not allowed");
+      }
+      return inner.execute(asset, args, ctx);
+    },
+  };
+}
+
+/** Instabox box ids come from INSTABOX_BOX_ID only: a step that names a box is refused, and no env id = no exec. */
+export function guardInstabox(inner: Executor, env: NodeJS.ProcessEnv): Executor {
+  const boxId = env.INSTABOX_BOX_ID?.trim() ?? "";
+  return {
+    async execute(asset: Asset, args: Record<string, unknown>, ctx: AgentContext): Promise<StepResult> {
+      if (Object.keys(args).some((k) => /box/i.test(k))) return refuse(asset, "box id comes from env only");
+      if (!boxId) return refuse(asset, "not configured");
+      return inner.execute(asset, args, ctx);
+    },
+  };
+}
+
 const excerpt = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? null)).slice(0, DIAG_EXCERPT);
 
 type DbRes = { data: unknown; error: { message: string } | null; count?: number | null };
@@ -113,8 +148,8 @@ export function createExecutors(env: NodeJS.ProcessEnv, _store: Store): { execut
     aze: createAzeExecutor(self),
     mcp: createMcpExecutor(),
     http_fetch: createHttpFetchExecutor(),
-    instabox: notConfigured(),
-    inkbox: notConfigured(),
+    instabox: guardInstabox(notConfigured(), env),
+    inkbox: guardInkboxSend(notConfigured(), env),
   };
   const diags: ProviderDiag[] = [
     {

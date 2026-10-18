@@ -23,5 +23,6 @@ export function buildRuntime(env: NodeJS.ProcessEnv, store: Store): RuntimeDeps 
     renderer: render.renderer,
     executors: exec.executors,
     diags: [...subq.diags, ...render.diags, ...exec.diags, ...stripe.diags],
+    payments: stripe.plugin,
   };
 }

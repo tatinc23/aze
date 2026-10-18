@@ -10,6 +10,7 @@ const building = env.MCP_USE_PHASE === "build"; // mcp-use build imports this fi
 const store = createStore(env);
 
 let paywall: Awaited<ReturnType<typeof createPaywall>> | null = null;
+const runtimeRef: { current: ReturnType<typeof buildRuntime> | null } = { current: null };
 if (env.PLATFORM_ADDRESS && !building) {
   try {
     const settings = await store.getSettings().catch(() => DEFAULT_SETTINGS);
@@ -17,7 +18,7 @@ if (env.PLATFORM_ADDRESS && !building) {
       facilitatorUrl: env.X402_FACILITATOR_URL ?? "https://x402.org/facilitator",
       payTo: env.PLATFORM_ADDRESS,
       priceMicro: settings.price_micro,
-      onSettled: (s) => recordSettledUnlock(store, s),
+      onSettled: (s) => recordSettledUnlock(store, s, runtimeRef.current),
     });
     console.log(`paywall ready: payTo=${env.PLATFORM_ADDRESS} price_micro=${settings.price_micro}`);
   } catch (e) {
@@ -35,6 +36,7 @@ if (!building && store.kind === "supabase") {
 }
 
 const runtime = buildRuntime(env, store);
+runtimeRef.current = runtime;
 const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY, runtime });
 
 if (!building && env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {

@@ -167,14 +167,16 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
   );
 
   if (runtime) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl });
+  runtime?.payments?.registerTools?.(server, { store });
   registerWeb((server as any).app, { store, adminKey: deps.adminKey, runtime, baseUrl: deps.baseUrl });
   return server;
 }
 
 /** Ledger write for a settled unlock (called from the paywall's onAfterSettlement). */
-export async function recordSettledUnlock(store: Store, s: { note_id: string; tx_hash: string; network: string; amount_micro: number }) {
+export async function recordSettledUnlock(store: Store, s: { note_id: string; tx_hash: string; network: string; amount_micro: number }, runtime?: RuntimeDeps | null) {
   const settings = await store.getSettings();
   const { filer, platform } = split(s.amount_micro, settings.filer_bps);
   await store.recordUnlock({ note_id: s.note_id, amount_micro: s.amount_micro, filer_micro: filer, platform_micro: platform, tx_hash: s.tx_hash, network: s.network });
   console.log(`UNLOCK settled note=${s.note_id} tx=${s.tx_hash} filer=${filer} platform=${platform}`);
+  await runtime?.payments?.onSettled?.(s).catch((e) => console.error("payments onSettled failed:", (e as Error).message));
 }

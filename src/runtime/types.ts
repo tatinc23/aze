@@ -138,6 +138,19 @@ export interface Pipeline {
   run(task: string, surface: string | null, ctx: AgentContext): Promise<RunRecord>;
 }
 
+/** A settled x402 unlock, as recorded in our ledger. */
+export interface SettledUnlock { note_id: string; tx_hash: string; network: string; amount_micro: number }
+
+/** Stripe machine payments (stream D) plug in here so app.ts never changes. All optional. */
+export interface PaymentsPlugin {
+  /** Called after our ledger rows are written for an x402 settlement (D1: record it in Stripe). Must never throw. */
+  onSettled?: (s: SettledUnlock) => Promise<void>;
+  /** Extra MCP tools, e.g. a card unlock via MPP (D2). `server` is the mcp-use MCPServer. */
+  registerTools?: (server: any, deps: { store: import("../types.js").Store }) => void;
+  /** Extra HTTP routes, e.g. the MPP payment endpoint. `app` is the Hono app. */
+  registerRoutes?: (app: any, deps: { store: import("../types.js").Store; baseUrl?: string }) => void;
+}
+
 /** Everything the runtime needs, built once at boot by src/runtime/deps.ts. Missing providers are null. */
 export interface RuntimeDeps {
   runs: RunStore;
@@ -149,4 +162,5 @@ export interface RuntimeDeps {
   auditor: NoteAuditor | null;
   executors: Partial<Record<ExecutorKind, Executor>>;
   diags: ProviderDiag[];
+  payments: PaymentsPlugin | null;
 }

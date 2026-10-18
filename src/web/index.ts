@@ -11,6 +11,7 @@ export function registerWeb(app: any, deps: { store: Store; adminKey?: string; r
   if (deps.runtime) {
     registerDiag(app, { adminKey, diags: deps.runtime.diags });
     registerRuntimeWeb(app, { store, runtime: deps.runtime, adminKey, baseUrl: deps.baseUrl });
+    deps.runtime.payments?.registerRoutes?.(app, { store, baseUrl: deps.baseUrl });
   }
   app.get("/health", (c: any) => c.json({ ok: true, store: store.kind }));
   const safe = (f: () => Promise<unknown>) => async (c: any) => {

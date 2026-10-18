@@ -2,9 +2,16 @@
 import type { Store } from "../types.js";
 import { dashboardHtml } from "./dashboard.js";
 import { connectHtml, qrSvg, resolveBaseUrl } from "./connect.js";
+import type { RuntimeDeps } from "../runtime/types.js";
+import { registerDiag } from "./diag.js";
+import { registerRuntimeWeb } from "./runtime.js";
 
-export function registerWeb(app: any, deps: { store: Store; adminKey?: string }) {
+export function registerWeb(app: any, deps: { store: Store; adminKey?: string; runtime?: RuntimeDeps | null; baseUrl?: string }) {
   const { store, adminKey } = deps;
+  if (deps.runtime) {
+    registerDiag(app, { adminKey, diags: deps.runtime.diags });
+    registerRuntimeWeb(app, { store, runtime: deps.runtime, adminKey, baseUrl: deps.baseUrl });
+  }
   app.get("/health", (c: any) => c.json({ ok: true, store: store.kind }));
   const safe = (f: () => Promise<unknown>) => async (c: any) => {
     try { return c.json(await f()); } catch (e) { console.error("api store error:", (e as Error).message); return c.json({ ok: false, code: "store_unavailable" }, 503); }

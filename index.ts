@@ -3,6 +3,7 @@ import { createStore } from "./src/store/index.js";
 import { createPaywall } from "./src/pay/index.js";
 import { createServer, recordSettledUnlock } from "./src/app.js";
 import { DEFAULT_SETTINGS } from "./src/types.js";
+import { buildRuntime } from "./src/runtime/deps.js";
 
 const env = process.env;
 const building = env.MCP_USE_PHASE === "build"; // mcp-use build imports this file; skip network side effects then
@@ -33,7 +34,8 @@ if (!building && store.kind === "supabase") {
     .catch((e) => console.error("[store] supabase NOT ready (apply supabase/migrations/0001_init.sql):", (e as Error).message));
 }
 
-const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY });
+const runtime = buildRuntime(env, store);
+const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY, runtime });
 
 if (!building && env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {
   // Lets us prove the live loop from Manufact's runtime logs when the dev container can't reach the server.

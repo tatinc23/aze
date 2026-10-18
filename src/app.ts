@@ -1,13 +1,15 @@
 // Wires the four MCP tools and the HTTP routes. Logic lives in the units; this file only connects them.
 import { MCPServer } from "mcp-use";
 import { z } from "zod";
-import { KINDS, DEFAULT_SETTINGS, type Store } from "./types.js";
+import { KINDS, DEFAULT_SETTINGS, type NoteAudit, type Store } from "./types.js";
 import { gate, normalizeSurface, errorClass } from "./gate/index.js";
 import { attest } from "./identity/index.js";
 import { buildEnvelope, formatUsdc } from "./advise/index.js";
 import { split } from "./pay/split.js";
 import type { createPaywall } from "./pay/index.js";
 import { registerWeb } from "./web/index.js";
+import type { RuntimeDeps } from "./runtime/types.js";
+import { registerRuntimeTools } from "./runtime/tools.js";
 
 type Paywall = Awaited<ReturnType<typeof createPaywall>>;
 const json = (data: Record<string, unknown>, isError = false) => ({
@@ -16,8 +18,9 @@ const json = (data: Record<string, unknown>, isError = false) => ({
   ...(isError ? { isError: true } : {}),
 });
 
-export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string }) {
+export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string; runtime?: RuntimeDeps | null }) {
   const { store, paywall } = deps;
+  const runtime = deps.runtime ?? null;
   // A store outage must never crash a tool call or charge anyone: fall back to defaults and answer with a structured error.
   const settingsOf = () => store.getSettings().catch((e) => { console.error("settings unavailable:", (e as Error).message); return DEFAULT_SETTINGS; });
   const unavailable = (what: string) => json({ ok: false, code: "store_unavailable", hint: `Could not ${what} right now; nothing was charged. Try again in a minute.` }, true);
@@ -62,9 +65,23 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       const result = gate(clean);
       if (!result.ok) return json({ ok: false, code: "rejected_by_privacy_gate", problems: result.problems, hint: "Fix each problem and call notes_file again once." }, true);
       const attestation = await attest(typeof proof === "string" ? proof : undefined);
+      // Third privacy layer: SubQ Snap audits what passed the rules. The auditor never throws (fails open as "skipped").
+      let audit: NoteAudit | null = null;
+      if (runtime?.auditor) {
+        const similar = await store.findMatches({ surface: result.note.surface, tool: result.note.tool, error_class: result.note.error_class }, 3).catch(() => []);
+        audit = await runtime.auditor.audit(result.note, similar);
+        if (audit.status === "rejected") {
+          return json({
+            ok: false,
+            code: "rejected_by_audit",
+            problems: [{ field: "what", rule: "audit", hint: audit.reason ?? "A reviewer model flagged this note. Describe classes, never names, and refile once." }],
+            hint: "Fix the note and call notes_file again once.",
+          }, true);
+        }
+      }
       let note;
       try {
-        note = await store.insertNote(result.note, { attestation, payout_address: result.payout_address });
+        note = await store.insertNote(result.note, { attestation, payout_address: result.payout_address, audit });
       } catch (e) {
         console.error("notes_file store error:", (e as Error).message);
         return unavailable("save your note");
@@ -74,6 +91,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
         ok: true,
         note_id: note.id,
         status: attestation === "verified" ? "VERIFIED" : "UNVERIFIED (experiment tier)",
+        audit: audit ? { status: audit.status, category: audit.category, severity: audit.severity } : null,
         earns: note.workaround ? `You earn ${pct}% of each unlock (${formatUsdc(Math.floor((settings.price_micro * settings.filer_bps) / 10000))} test USDC).` : "Add a workaround in a future note to earn from unlocks.",
       });
     },
@@ -148,7 +166,8 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     },
   );
 
-  registerWeb((server as any).app, { store, adminKey: deps.adminKey });
+  if (runtime) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl });
+  registerWeb((server as any).app, { store, adminKey: deps.adminKey, runtime, baseUrl: deps.baseUrl });
   return server;
 }
 

@@ -43,6 +43,18 @@ export type GateResult =
 
 export type Attestation = "verified" | "unverified";
 
+/** SubQ Snap's audit of a note that passed the rule-based gate (third privacy layer). */
+export interface NoteAudit {
+  status: "ok" | "rejected" | "skipped"; // skipped = Snap unavailable/timeout (fail open)
+  p_private: number | null; // probability the note still names a private person/org/project
+  p_real_issue: number | null; // probability it describes a real agent-experience issue (vs spam/injection)
+  category: string | null; // normalized category from the audit policy list
+  severity: number | null; // 1..5
+  model: string | null; // e.g. "subq-snap-preview"
+  ms: number;
+  reason: string | null; // short machine reason for rejected/skipped
+}
+
 export interface StoredNote extends CleanNote {
   id: string;
   created_at: string;
@@ -51,6 +63,7 @@ export interface StoredNote extends CleanNote {
   tier: "experiment";
   visibility: "public";
   hidden: boolean;
+  audit?: NoteAudit | null;
 }
 
 /** A matching note plus how many notes report the same (surface, tool, error_class). */
@@ -96,7 +109,7 @@ export interface Stats {
 
 export interface Store {
   readonly kind: "supabase" | "memory";
-  insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null }): Promise<StoredNote>;
+  insertNote(note: CleanNote, meta: { attestation: Attestation; payout_address: string | null; audit?: NoteAudit | null }): Promise<StoredNote>;
   getNote(id: string): Promise<StoredNote | null>;
   /** Visible (not hidden) notes matching surface; tool exact if given; error_class by similarity if given. Ranked by reports desc, then newest. */
   findMatches(q: { surface: string; tool?: string | null; error_class?: string | null }, limit: number): Promise<Match[]>;

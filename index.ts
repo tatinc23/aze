@@ -4,6 +4,7 @@ import { createPaywall } from "./src/pay/index.js";
 import { createServer, recordSettledUnlock } from "./src/app.js";
 import { DEFAULT_SETTINGS } from "./src/types.js";
 import { buildRuntime } from "./src/runtime/deps.js";
+import { providersLine, scheduleBootDiag } from "./src/web/diag.js";
 
 const env = process.env;
 const building = env.MCP_USE_PHASE === "build"; // mcp-use build imports this file; skip network side effects then
@@ -41,6 +42,10 @@ if (!building && store.kind === "supabase") {
 const runtime = buildRuntime(env, store);
 runtimeRef.current = runtime;
 const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY, runtime });
+if (!building) console.log(providersLine(runtime));
+// DIAG_ON_BOOT=1: one DIAG line in the runtime logs 10 s after boot (every provider check from this machine, details
+// redacted and cut to 300 chars), so a deploy can be verified from Manufact's logs without calling /admin/diag.
+if (!building && env.DIAG_ON_BOOT === "1") scheduleBootDiag(runtime.diags, { env });
 
 if (!building && env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {
   // Lets us prove the live loop from Manufact's runtime logs when the dev container can't reach the server.

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CleanNote } from "../types.js";
 import { SupabaseStore } from "./supabase.js";
 
@@ -45,7 +45,9 @@ const clean: CleanNote = {
   kind: "friction", category: "auth", surface: "inkbox", surface_display: "Inkbox", what: "w", tool: null,
   error_class: null, tokens_spent: null, dollars_spent: null, workaround: "wa", teaser: "wa", wish: null,
 };
-const row = { ...clean, id: ID, created_at: "2026-10-17T18:37:55.81049+00:00", attestation: "unverified", quarantined: true, tier: "experiment", visibility: "public", hidden: false };
+// A post-0003 row: notes.audit exists (null when the note was filed without a Snap audit).
+const row = { ...clean, id: ID, created_at: "2026-10-17T18:37:55.81049+00:00", attestation: "unverified", quarantined: true, tier: "experiment", visibility: "public", hidden: false, audit: null };
+const audit = { status: "ok", p_private: 0.02, p_real_issue: 0.9, category: "auth", severity: 2, model: "subq-snap-preview", ms: 380, reason: null } as const;
 
 describe("SupabaseStore (fake client)", () => {
   it("inserts only CleanNote fields into notes and the payout into note_payouts", async () => {
@@ -83,5 +85,52 @@ describe("SupabaseStore (fake client)", () => {
   it("surfaces Postgres errors from record_unlock", async () => {
     const { s } = store({ "rpc.record_unlock": [{ error: { message: "violates foreign key" } }] });
     await expect(s.recordUnlock({ note_id: ID, amount_micro: 1, filer_micro: 1, platform_micro: 0, tx_hash: "0x", network: "n" })).rejects.toThrow(/record_unlock/);
+  });
+
+  it("writes the audit into notes.audit on insert and maps it back", async () => {
+    const { s, calls } = store({ "notes.insert": [{ data: { ...row, audit } }] });
+    const n = await s.insertNote(clean, { attestation: "unverified", payout_address: null, audit: { ...audit, extra: "x" } as typeof audit });
+    const noteInsert = calls.find((c) => c.op === "notes.insert")!.args[0] as Record<string, unknown>;
+    expect(noteInsert.audit).toEqual(audit); // exactly the NoteAudit fields
+    expect(Object.keys(noteInsert).sort()).toEqual([...Object.keys(clean), "attestation", "audit"].sort());
+    expect(n.audit).toEqual(audit);
+  });
+
+  it("does not send the audit column when there is no audit (works before migration 0003)", async () => {
+    const { s, calls } = store({ "notes.insert": [{ data: row }] });
+    await s.insertNote(clean, { attestation: "unverified", payout_address: null, audit: null });
+    expect("audit" in (calls.find((c) => c.op === "notes.insert")!.args[0] as object)).toBe(false);
+  });
+
+  it("retries without the audit when notes.audit does not exist yet, and still saves the note", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { s, calls } = store({
+      "notes.insert": [{ error: { message: "Could not find the 'audit' column of 'notes' in the schema cache" } }, { data: row }],
+    });
+    const n = await s.insertNote(clean, { attestation: "unverified", payout_address: null, audit });
+    const inserts = calls.filter((c) => c.op === "notes.insert").map((c) => c.args[0] as Record<string, unknown>);
+    expect(inserts).toHaveLength(2);
+    expect("audit" in inserts[1]).toBe(false);
+    expect(n.id).toBe(ID);
+    expect(n.audit).toBeNull();
+    warn.mockRestore();
+  });
+
+  it("does not retry other insert errors", async () => {
+    const { s, calls } = store({ "notes.insert": [{ error: { message: "permission denied for table notes" } }] });
+    await expect(s.insertNote(clean, { attestation: "unverified", payout_address: null, audit })).rejects.toThrow(/insert note/);
+    expect(calls.filter((c) => c.op === "notes.insert")).toHaveLength(1);
+  });
+
+  it("maps audit from getNote and find_matches rows; absent or malformed -> null", async () => {
+    const { audit: _none, ...preMigration } = row; // a row from before migration 0003 has no audit key
+    const { s } = store({
+      "notes.select": [{ data: { ...row, audit } }, { data: preMigration }],
+      "rpc.find_matches": [{ data: [{ note: { ...row, audit: JSON.stringify(audit) }, reports: 1 }, { note: { ...row, audit: { bogus: 1 } }, reports: 1 }] }],
+    });
+    expect((await s.getNote(ID))!.audit).toEqual(audit);
+    expect((await s.getNote(ID))!.audit).toBeNull();
+    const m = await s.findMatches({ surface: "inkbox" }, 5);
+    expect(m.map((x) => x.note.audit)).toEqual([audit, null]);
   });
 });

@@ -8,6 +8,12 @@ Aze is an MCP server. Add it to any agent in one line, and the agent can check k
 
 https://github.com/tatinc23/aze/raw/main/docs/media/aze-intro.mp4
 
+## Why: the map
+
+One agent's note is a warning. Thousands of notes are a map of where agents break.
+
+Aze compiles every filed note into patterns — which tools block agents, which workarounds actually work — so vendors can see their own friction and fix it. The filing tools are free; the compiled dataset is the product. Day 1: sparse. Day 100: the map.
+
 ## Try it
 
 ```bash

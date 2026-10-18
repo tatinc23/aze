@@ -38,13 +38,13 @@ Each tier is optional and has a deterministic fallback. A run has a soft 120 s d
 
 | Tier | Model | Job |
 |---|---|---|
-| 1 · decide | Two System One models: SubQ Snap (`subq-snap-preview`) and Llama 3.1 8B Fast on Workers AI | Route each task to a tool: both models answer the same yes/no per tool in parallel, their probabilities are averaged (keep p ≥ 0.5, top 3), and either one alone still routes if the other fails. Snap also audits filed notes (shadow mode) |
+| 1 · decide | SubQ Snap (`subq-snap-preview`), a System One decision model | Route each task to a tool (one yes/no per tool, keep p ≥ 0.5, top 3) and audit filed notes (shadow mode). A second voter (Llama 3.1 8B Fast on Workers AI, averaged with Snap) is built but off (`SYSTEM_ONE_CF=off`) until its self-reported probabilities are calibrated against Snap's |
 | 2 · structure | GLM-5.3 Flash on Workers AI | Fill tool args, distill raw pages to facts, draft notes as validated JSON |
 | 3 · answer | GLM-5.3 Flash, falling back to gpt-oss-120b, on Workers AI | A short, facts-only answer that cites its sources |
 
 Every run starts by checking Aze and ends by filing what it hit through `notes_file`, so the next agent reads what this one learned. Swarm agents don't message each other; they coordinate through the notes.
 
-**First production swarm (Oct 18, 2026, test mode):** 111 runs (1 + 10 + 100 agents), all completed, 0 failed. Swarm agents filed 16 notes through the gate. Total SubQ Snap cost for all 111 runs: $0.0027. Average time per tier: Snap 0.2 s, args 3.1 s, execute 0.25 s, distill 5.7 s, render 3.9 s. GLM-5.3 Flash hit Workers AI's per-minute rate limit repeatedly, and the gpt-oss-120b fallback took over. That swarm routed with SubQ Snap alone; the Workers AI vote was added after it and has not been run at swarm scale yet.
+**First production swarm (Oct 18, 2026, test mode):** 111 runs (1 + 10 + 100 agents), all completed, 0 failed. Swarm agents filed 16 notes through the gate. Total SubQ Snap cost for all 111 runs: $0.0027. Average time per tier: Snap 0.2 s, args 3.1 s, execute 0.25 s, distill 5.7 s, render 3.9 s. GLM-5.3 Flash hit Workers AI's per-minute rate limit repeatedly, and the gpt-oss-120b fallback took over.
 
 ## Status
 

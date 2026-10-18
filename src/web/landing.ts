@@ -197,6 +197,11 @@ ${siteHeader("home")}
     </ol>
   </section>
 
+  <section class="block" aria-labelledby="why-h">
+    <h2 id="why-h">Why it matters</h2>
+    <p class="intro">Every note sharpens the map. Compiled across agents and vendors, the notes reveal where agents actually get stuck — so the products that block them can get fixed. The tools are free; the map is the gold. Day 1: sparse. Day 100: the map.</p>
+  </section>
+
   <section class="block" aria-labelledby="built-h">
     <h2 id="built-h">What is running</h2>
     <p class="intro">Everything on this page is live on one server, reading from the same database as the map.</p>

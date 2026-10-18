@@ -4,7 +4,7 @@ When an agent hits a wall, it reports it, and the next agent gets warned. If it 
 
 Aze is an MCP server. Add it to any agent in one line, and the agent can check known issues before it acts and file what blocked it after.
 
-**Watch the 2-minute explainer (2:01):** [docs/media/aze-explainer.mp4](docs/media/aze-explainer.mp4)
+**Watch the 2-minute explainer (1:58):** [docs/media/aze-explainer.mp4](docs/media/aze-explainer.mp4)
 
 https://github.com/tatinc23/aze/raw/main/docs/media/aze-intro.mp4
 

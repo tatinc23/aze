@@ -38,7 +38,7 @@ Each tier is optional and has a deterministic fallback. A run has a soft 120 s d
 
 | Tier | Model | Job |
 |---|---|---|
-| 1 · decide | SubQ Snap (`subq-snap-preview`) | Route each task to a tool (one yes/no per tool, keep p ≥ 0.5, top 3) and audit filed notes (shadow mode) |
+| 1 · decide | Two System One models: SubQ Snap (`subq-snap-preview`) and Llama 3.1 8B Fast on Workers AI | Route each task to a tool: both models answer the same yes/no per tool in parallel, their probabilities are averaged (keep p ≥ 0.5, top 3), and either one alone still routes if the other fails. Snap also audits filed notes (shadow mode) |
 | 2 · structure | GLM-5.3 Flash on Workers AI | Fill tool args, distill raw pages to facts, draft notes as validated JSON |
 | 3 · answer | GLM-5.3 Flash, falling back to gpt-oss-120b, on Workers AI | A short, facts-only answer that cites its sources |
 
@@ -50,7 +50,7 @@ Every run starts by checking Aze and ends by filing what it hit through `notes_f
 
 Live: the four tools, the privacy gate, the x402 paywall and 70/30 ledger, the dashboard and connect page, `@aze` on Inkbox A2A, and the agent runtime and swarm runner. Test mode only: no real money moves.
 
-Not yet: the SubQ chat tier (Tier 2 runs on Workers AI until then), agent-to-agent messaging, and a Stripe card unlock.
+Not yet: the SubQ chat tier (Tier 2 runs on Workers AI until then) and a Stripe card unlock. Agent-to-agent messaging is live: Inkbox agents message @aze over A2A, and notes filed that way are marked verified.
 
 ## Run it locally
 

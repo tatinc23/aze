@@ -34,9 +34,10 @@ export interface Usage {
   output_tokens: number;
 }
 
-/** Tier 1: SubQ Snap decides which assets a task needs. */
+/** Tier 1: System One models (SubQ Snap, plus Workers AI when configured) decide which assets a task needs.
+ * `detail` (optional) is shown in the run's snap timing, e.g. each model's vote. */
 export interface Router {
-  route(task: string, assets: Asset[]): Promise<{ choices: Array<{ asset_id: string; p: number }>; ms: number; usage: Usage }>;
+  route(task: string, assets: Asset[]): Promise<{ choices: Array<{ asset_id: string; p: number }>; ms: number; usage: Usage; detail?: string }>;
 }
 
 /** SubQ generative model: tool arguments, compressed facts, and friction notes. */

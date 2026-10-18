@@ -13,7 +13,14 @@ export const AUDIT_TIMEOUT_MS = 3_000;
 /** Task text in the router's state (agent_run caps tasks at 500; the swarm calls the pipeline directly). */
 export const MAX_TASK_CHARS = 2_000;
 
-export class SnapClient {
+/** A System One decider: answers named noul/choice/score questions about a state with probabilities. SubQ Snap is
+ * one; Workers AI (src/llm/workers-ai-systemone.ts) is a second, so routing can blend two different models. */
+export interface Decider {
+  readonly model: string;
+  decide(state: string, questions: Record<string, SnapQuestion>, timeoutMs: number): Promise<SnapResult & { ms: number; raw: string }>;
+}
+
+export class SnapClient implements Decider {
   constructor(private readonly cfg: SubqConfig) {}
   get model(): string {
     return this.cfg.snapModel;
@@ -47,7 +54,7 @@ export function routeQuestion(a: Asset): SnapQuestion {
   };
 }
 
-export function createRouter(snap: SnapClient, opts: { timeoutMs?: number } = {}): Router {
+export function createRouter(snap: Decider, opts: { timeoutMs?: number } = {}): Router {
   const timeoutMs = opts.timeoutMs ?? ROUTE_TIMEOUT_MS;
   return {
     async route(task, assets) {
@@ -170,7 +177,7 @@ function skipReason(e: unknown): string {
 }
 
 export function createAuditor(
-  snap: SnapClient,
+  snap: Decider,
   opts: { timeoutMs?: number; mode?: AuditMode; policy?: () => Promise<AuditPolicy> } = {},
 ): NoteAuditor {
   const timeoutMs = opts.timeoutMs ?? AUDIT_TIMEOUT_MS;

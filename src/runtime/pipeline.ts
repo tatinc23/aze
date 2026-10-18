@@ -270,7 +270,7 @@ export function createPipeline(store: RunStore | Store, runtime: RuntimeDeps, op
               .slice(0, MAX_ASSETS)
               .map((c) => ({ asset_id: c.asset_id, p: c.p }));
             const u = bill("snap", r);
-            time("snap", t, true, `${chosen.length ? `chose ${chosen.map((c) => `${c.asset_id} p=${c.p.toFixed(2)}`).join(", ")}` : `no asset needed (none of ${candidates.length} at p >= ${MIN_P})`}${catDetail ? `; ${catDetail}` : ""}`, u);
+            time("snap", t, true, `${chosen.length ? `chose ${chosen.map((c) => `${c.asset_id} p=${c.p.toFixed(2)}`).join(", ")}` : `no asset needed (none of ${candidates.length} at p >= ${MIN_P})`}${typeof r?.detail === "string" && r.detail ? `; ${r.detail.slice(0, 300)}` : ""}${catDetail ? `; ${catDetail}` : ""}`, u);
           } catch (e) {
             if (e instanceof DeadlineError) throw e;
             const u = usageOf(e);

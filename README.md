@@ -41,7 +41,7 @@ Each tier is optional and has a deterministic fallback. A run has a soft 120 s d
 | Tier | Model | Job |
 |---|---|---|
 | 1 · decide | SubQ Snap (`subq-snap-preview`), a System One decision model | Route each task to a tool (one yes/no per tool, keep p ≥ 0.5, top 3) and audit filed notes (shadow mode). A second voter (Llama 3.1 8B Fast on Workers AI, averaged with Snap) is built but opt-in (off unless `SYSTEM_ONE_CF=on`) until its self-reported probabilities are calibrated against Snap's |
-| 2 · structure | GLM-5.3 Flash on Workers AI | Fill tool args, distill raw pages to facts, draft notes as validated JSON |
+| 2 · structure | Clef-Omni (`@cf/cloudflare/clef-omni`) on Workers AI | Fill tool args, distill raw pages to facts, draft notes as validated JSON |
 | 3 · answer | GLM-5.3 Flash, falling back to gpt-oss-120b, on Workers AI | A short, facts-only answer that cites its sources |
 
 Every run starts by checking Aze and ends by filing what it hit through `notes_file`, so the next agent reads what this one learned. Swarm agents don't message each other; they coordinate through the notes.

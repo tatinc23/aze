@@ -1,5 +1,83 @@
 # Handoff
 
+## 2026-10-19: next job is Clef-Omni (written by Claude, session ended at Ken's request, no code written)
+
+### The intended flow (Ken, 2026-10-19). The code does not do this yet.
+1. A human asks their AI to do something.
+2. The AI calls Aze's connector with the task.
+3. **SubQ Snap + Cloudflare Clef-Omni decide and reason:** which tool, which known walls apply, what to do about them.
+4. Aze hands those decisions and the facts back to **the caller's LLM**.
+5. The caller's LLM finishes the task and gives the human the result.
+
+Clef-Omni is a stand-in. SubQ's own small model isn't on Ken's key yet (it only has `subq-snap-preview`); when SubQ
+grants it, compare the two and keep whichever wins.
+
+### What the code does today (main `a208008`; PR #12 is docs only)
+- Decide: SubQ Snap only. The second vote (`src/llm/workers-ai-systemone.ts`, combined in `src/subq/ensemble.ts`) is
+  wired but off (`SYSTEM_ONE_CF=off` in production; it is opt-in). Its default model is Llama 3.1 8B, which reports
+  its own `p_yes` in JSON, and that number isn't calibrated.
+- Structure (args, distill, note drafts): GLM-5.3 Flash, falling back to gpt-oss-120b, on Workers AI.
+- Answer: **Aze writes it** (`src/runtime/pipeline.ts` step 5, `runtime.renderer.render`), on the same Workers AI pair.
+  The caller's LLM gets a finished answer, not decisions plus facts.
+- CLI commits `c9101b7`/`79eaf1c` (README) and `9dd5ccc` (dashboard labels) describe the intended flow as if it
+  were live. PR #12 fixes the README. **The dashboard labels are still wrong** until the work below ships.
+
+### Verified facts about Clef-Omni (Cloudflare docs, read 2026-10-19 via the Cloudflare docs MCP)
+- `@cf/cloudflare/clef-omni` exists on Workers AI (launched Oct 9, 2026). It's a **decision model**: you give it a
+  state plus typed questions, and it returns a probability for every allowed option. It does not generate text. It
+  uses the same "System One API" as Clef / Clef-flash and Typesafe's Jev. The docs say: "change the model ID to
+  `@cf/cloudflare/clef-omni` and set the `model` selector to `clef-omni`."
+- Specs: 30B MoE (3B active), 64k context. Inputs: text, JSON, images, audio, video. $0.15 per million input
+  tokens; output is free.
+- Clef-flash costs $0.038/M and Clef is up to 2x faster. For text-only routing, try `clef` and `clef-flash` before
+  `clef-omni`. Omni's extra is media input, and Aze sends none.
+
+### Do NOT do this: `RENDER_MODEL=@cf/cloudflare/clef-omni`
+The renderer and the chat tiers expect generated text, and Clef doesn't produce any. Pointing them at Clef would
+break every answer and every note draft. **Clef goes in the decide slot, not the render slot.**
+`SYSTEM_ONE_CF_MODEL=@cf/cloudflare/clef-omni` on its own probably fails too. The current adapter sends a chat
+prompt and parses a JSON reply; Clef has its own System One request format. So the work is a small native adapter,
+not an env var.
+
+### The work, in order (branch + PR, Ken merges; main auto-deploys)
+1. **Read the request/response format** on the model page (`/workers-ai/models/clef-omni/`, "View as Markdown").
+   Don't guess the body.
+2. **Add a native Clef `Decider`** next to `workers-ai-systemone.ts`. It maps Snap's questions (noul / choice /
+   score, `src/subq/wire.ts`) onto Clef's typed questions, and Clef's probabilities back onto `SnapAnswer`.
+   - Same CF credentials, redaction and timeouts as the existing adapter.
+   - Price it: per input token, output free.
+   - Add a `DIAG_ON_BOOT` probe with the same questions as the Snap diag.
+   - Tests use recorded fixtures.
+3. **Switch:** `SYSTEM_ONE_CF=clef` (or a new `DECIDER_2=clef`); `SYSTEM_ONE_CF_MODEL` picks clef / clef-flash /
+   clef-omni. Keep Llama as a non-default option.
+   - The off-by-default reason was uncalibrated, self-reported `p_yes`. Clef returns real probabilities, but check
+     agreement against Snap on a fixed task set before turning it on: log both votes, then compare.
+4. **Return decisions to the caller (step 4 of the flow).** Add an `agent_run` mode, e.g. `answer: "caller"`, that
+   skips `renderer.render` and returns:
+   - the routing decisions with their probabilities;
+   - the advisories that applied;
+   - the distilled facts.
+
+   Keep today's rendered answer as the default until the new mode is proven. The pipeline already returns facts when
+   there's no renderer (see step 5's "renderer unavailable" branch), so this is mostly a flag plus output shape.
+5. **Then fix the docs to match:** the dashboard labels (`9dd5ccc`), the README runtime table, and `/connect`.
+   Don't change them before the code ships.
+6. **Prove it:** deploy (merge), set `DIAG_ON_BOOT=1`, warm `/api/health`, and read the `DIAG` + `RUNTIME
+   providers` lines in the Manufact runtime logs. Then run 10 `agent_run`s, then a 25-agent swarm, and compare Snap
+   alone with Snap + Clef: routing agreement, latency and cost.
+
+### Rules that still hold
+TEST mode only. Never print secrets. Never rotate keys on Ken's identities. Don't log rejected note input. Instabox
+box ids come from env only. `inkbox_send` sends only to allowlisted recipients. Nothing public merges without Ken's
+review. Production deploys and force-pushes are blocked by the classifier; don't work around it.
+
+### Open PR
+[tatinc23/aze#12](https://github.com/tatinc23/aze/pull/12): the README repositioning (agent self-reported data,
+routing, token spend, data sales). CI is green and it's mergeable. **Waiting on Ken.** It now also carries this
+handoff.
+
+---
+## History (Oct 17–18 hack sessions)
 ## 8:26 AM PT Sun: hard rules until the demo (coordinator, Ken approved)
 No pushes to main (branch + PR, Ken merges). After the 8:30 freeze, no merges or env changes on production.
 SYSTEM_ONE_CF=off on purpose; leave it off. PR #6 (inkbox_send allowlist via INKBOX_SEND_ALLOW, Instabox box id

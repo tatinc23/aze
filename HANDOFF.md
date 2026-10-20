@@ -4,10 +4,9 @@
 - **Framing (Ken):** title "Aze: the bottleneck map for AI agents"; hero "Every task, agents hit walls built for humans.
   Aze maps them so they can be fixed."; three lines "Show humans where AI workflows break. Better agent output through
   smarter tool calls. Less LLM token spend." Goal: Manufact classes Aze as Data & Analytics, not Dev Tools.
-- **Copy states the final outcome (Ken):** the Clef-Omni flow ships before the Manufact rescore, so the dashboard keeps
-  its Clef labels (tests updated to match). Open: HANDOFF 2026-10-19 says Clef returns probabilities, not text, so
-  "Clef-Omni fills inputs / distills" may never be literally true; the README runtime table still says Workers AI.
-  Ken to decide the labels for the final flow.
+- **Copy states the final outcome (Ken):** the Clef-Omni flow ships before the Manufact rescore. Dashboard + README
+  runtime table now show it: Snap + Clef pick tools, Workers AI fills inputs and distills, the caller's LLM answers.
+  Clef stays in the decide slot only (it returns probabilities, not text; see 2026-10-19 below).
 - **MCP surface:** idempotentHint + outputSchema on all 4 tools; `kind` is `z.enum(KINDS)` and text fields carry the gate's
   `.max()` limits (invalid kind/length now fails schema validation before the gate); notes_unlock readOnlyHint -> false
   (it settles a payment and writes a ledger row); websiteUrl -> `<base>/docs` (new page `src/web/docs.ts`).

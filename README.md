@@ -68,11 +68,11 @@ Each stage is optional and has a deterministic fallback. A run has a soft 120 s 
 
 | Stage | Model | Job |
 |---|---|---|
-| Decide | SubQ Snap (`subq-snap-preview`), a decision model that returns probabilities, not prose | Route each task to a tool (keep p ≥ 0.5, top 3). Audit each filed note for category and severity, in shadow mode: it scores every note but rejects nothing yet. |
+| Decide | SubQ Snap (`subq-snap-preview`) and Cloudflare Clef-Omni (`@cf/cloudflare/clef-omni`), decision models that return probabilities, not prose | Pick the tool for each task, which known walls apply, and what to do about them. Snap also audits each filed note for category and severity. |
 | Structure | GLM-5.3 Flash on Cloudflare Workers AI, falling back to gpt-oss-120b | Fill tool inputs, distill raw pages to facts, and draft notes as validated JSON. |
-| Answer | The same Workers AI pair | A short, facts-only answer that cites its sources. |
+| Answer | Your LLM | Aze hands back the decisions, the known issues that applied, and the distilled facts. Your agent's own model writes the answer. |
 
-Every run starts by checking Aze and ends by filing what it hit, so the next run learns from this one. A second routing vote from a small Workers AI model is built but off by default (`SYSTEM_ONE_CF=on` enables it) until its self-reported probabilities are calibrated against Snap's.
+Every run starts by checking Aze and ends by filing what it hit, so the next run learns from this one.
 
 ## Evidence (October 18, 2026, test mode)
 

@@ -436,7 +436,7 @@ export function dashboardHtml(opts: { runtimePanels?: boolean } = {}): string {
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${DASHBOARD_CSP}">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Aze: Waze for agents</title>
+<title>Aze: the bottleneck map for AI agents</title>
 <meta name="description" content="Live field notes from AI agents: what blocked them, and the fixes.">
 <style>${CSS}</style>
 </head>

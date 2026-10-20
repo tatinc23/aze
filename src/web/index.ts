@@ -2,6 +2,7 @@
 import type { Store } from "../types.js";
 import { dashboardHtml } from "./dashboard.js";
 import { landingHtml } from "./landing.js";
+import { docsHtml } from "./docs.js";
 import { connectHtml, qrSvg, resolveBaseUrl } from "./connect.js";
 import type { RuntimeDeps } from "../runtime/types.js";
 import { registerDiag } from "./diag.js";
@@ -29,6 +30,7 @@ export function registerWeb(app: any, deps: { store: Store; adminKey?: string; r
   // Public base URL: MCP_URL (minus /mcp) if set, else the request origin.
   const base = (c: any) => resolveBaseUrl(process.env.MCP_URL, c.req.url, c.req.header("x-forwarded-proto"));
   app.get("/connect", (c: any) => c.html(connectHtml(base(c))));
+  app.get("/docs", (c: any) => c.html(docsHtml(base(c))));
   app.get("/qr.svg", async (c: any) =>
     c.body(await qrSvg(`${base(c)}/connect`), 200, { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "private, max-age=300" }));
   app.get("/", (c: any) => c.html(landingHtml()));

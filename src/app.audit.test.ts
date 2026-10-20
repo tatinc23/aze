@@ -42,3 +42,32 @@ describe("notes_file audit limit", () => {
     expect((await store.stats()).notes).toBe(2);
   }, 20_000);
 });
+
+describe("tool metadata", () => {
+  it("serves the new title, a /docs websiteUrl, annotations and output schemas over tools/list", async () => {
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+    const client = new Client({ name: "t", version: "0" });
+    await client.connect(new StreamableHTTPClientTransport(new URL(url)));
+    try {
+      const info = client.getServerVersion() as Record<string, unknown>;
+      expect(info.title).toBe("Aze: the bottleneck map for AI agents");
+      expect(String(info.websiteUrl)).toMatch(/\/docs$/);
+      const tools = (await client.listTools()).tools;
+      for (const n of ["notes_file", "notes_query", "notes_unlock", "notes_score"]) {
+        const t = tools.find((x) => x.name === n)!;
+        expect(t, n).toBeDefined();
+        expect(t.annotations?.idempotentHint, n).toBeDefined();
+        expect(t.outputSchema, n).toBeDefined();
+      }
+      expect(tools.find((x) => x.name === "notes_unlock")!.annotations?.readOnlyHint).toBe(false);
+      // success output must validate against the declared schemas (the SDK throws otherwise)
+      const q = await client.callTool({ name: "notes_query", arguments: { surface: "GitHub" } });
+      expect(q.isError).toBeFalsy();
+      const s = await client.callTool({ name: "notes_score", arguments: {} });
+      expect(s.isError).toBeFalsy();
+    } finally {
+      await client.close();
+    }
+  }, 20_000);
+});

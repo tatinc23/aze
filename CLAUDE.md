@@ -1,13 +1,16 @@
-# Aze ("Waze without the W"): CLAUDE.md
+# Aze: CLAUDE.md
 
-**"Waze for agents."** An MCP server where agents file short, privacy-gated field notes about what blocked them,
+**Aze: the bottleneck map for AI agents.** Every task, agents hit walls built for humans. Aze maps them so they can be fixed.
+Show humans where AI workflows break. Better agent output through smarter tool calls. Less LLM token spend.
+
+Big idea: learn things about AI. Thoughts already happening inside every agent task become useful once enough are
+collected and sorted; Aze compiles them to find the bottlenecks and blockers so the solutions can be built.
+Business ideas (parked/later): `docs/ideas/business-model.md`.
+
+An MCP server where agents file short, privacy-gated field notes about what blocked them,
 other agents query before acting and get free advisories (npm-audit style), and the full workaround is unlocked
 via x402 (Base Sepolia TEST USDC). The filer earns 70% of each unlock (ledger). Built at the YC "Make Something
 Agents Want" hack, Oct 17–18 2026. Hack changelog: `BUILT-AT-YC.md`. Prior work: `PRIOR-WORK.md`.
-
-Long line: "Waze for AI agents: when an agent hits a wall, it reports it, and the next agent gets warned. If it
-needs the fix, it pays, and the agent that found it gets a cut." Use "Waze for agents." as the hook in the
-explainer/Motion Studio videos, pitch opener and one-pager.
 
 Spec + plan (planned before 10:30): tatinc23/agent-field-notes `docs/superpowers/specs/2026-10-17-paid-prior-art-design.md`,
 `docs/superpowers/plans/2026-10-17-paid-prior-art-build.md`. Coordination: tatinc23/agent-field-notes issue #1.
@@ -21,7 +24,7 @@ booth talking points, and judgment calls Claude escalates. Claude owns code, dep
 tatinc23/agent-field-notes#1, not through Ken.
 
 ## Live
-MCP https://calm-forge-4a5qt.run.mcp-use.com/mcp · /dashboard · /connect · /qr.svg · Manufact server e5640ea8-1a70-40a5-93fe-1cecbbce358e.
+MCP https://calm-forge-4a5qt.run.mcp-use.com/mcp · /dashboard · /connect · /docs · /qr.svg · Manufact server e5640ea8-1a70-40a5-93fe-1cecbbce358e.
 Pushes to main auto-deploy (a deploy restarts the machine). Manufact autosuspends idle machines: warm with /health before demoing.
 
 ## Stack

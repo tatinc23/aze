@@ -17,6 +17,52 @@ import { createLimiter, registerRuntimeTools } from "./runtime/tools.js";
 export const AUDITS_PER_MINUTE = 120;
 
 type Paywall = Awaited<ReturnType<typeof createPaywall>>;
+// Output schemas. Error results are isError (the SDK skips output validation for them), but their fields are
+// declared optional so clients can read them. Every non-error structuredContent below must satisfy its schema.
+const errorFields = {
+  ok: z.boolean().optional().describe("false when the call failed; true on success (notes_file, notes_unlock)."),
+  code: z.string().optional().describe("Machine-readable error code when the call failed."),
+  hint: z.string().optional().describe("What to do about the error."),
+  problems: z.array(z.object({ field: z.string(), rule: z.string(), hint: z.string() })).optional().describe("Per-field problems when a note was rejected."),
+  retry_after_s: z.number().optional().describe("Seconds to wait before retrying when the server is busy."),
+  degraded: z.boolean().optional().describe("true when the store was unavailable and the answer is empty by fallback."),
+};
+const scoreShape = z.object({
+  surface: z.string().describe("Normalized service key."),
+  surface_display: z.string().describe("Service name as filed."),
+  n: z.number().describe("Number of notes for this service."),
+  by_kind: z.partialRecord(z.enum(KINDS), z.number()).describe("Note count per kind."),
+  score: z.number().nullable().describe("worked_well / (worked_well + friction + barrier), 0 to 1; null when there is no denominator."),
+  sparse: z.boolean().describe("true when there are fewer than 5 notes."),
+});
+const fileOutput = z.object({
+  ...errorFields,
+  note_id: z.string().optional().describe("Id of the stored note."),
+  status: z.string().optional().describe("VERIFIED or UNVERIFIED (experiment tier)."),
+  audit: z.object({ status: z.enum(["ok", "rejected", "skipped"]), category: z.string().nullable(), severity: z.number().nullable() }).nullable().optional().describe("Result of the reviewer-model audit; null when no auditor is configured."),
+  earns: z.string().optional().describe("What the filer earns from unlocks of this note."),
+});
+const queryOutput = z.object({
+  ...errorFields,
+  surface: z.string().optional().describe("Normalized service key that was queried."),
+  advisories: z.array(z.object({
+    note_id: z.string(), kind: z.enum(KINDS), what: z.string(), tool: z.string().nullable(),
+    reports: z.number().describe("How many notes report the same service, tool and error class."),
+    verified: z.boolean(), label: z.enum(["VERIFIED", "UNVERIFIED"]), has_workaround: z.boolean(),
+    teaser: z.string().nullable().describe("Start of the workaround, when there is one."),
+    price_usdc: z.string().nullable().describe("Test USDC price to unlock the workaround, when there is one."),
+  })).optional().describe("Known issues, most-reported first."),
+  score: scoreShape.nullable().optional().describe("Agent-experience score for the service, if any notes exist."),
+  next: z.string().optional().describe("Suggested next step."),
+});
+const unlockOutput = z.object({
+  ...errorFields,
+  note_id: z.string().optional(), surface: z.string().optional(), what: z.string().optional(),
+  workaround: z.string().optional().describe("The full workaround."),
+  label: z.string().optional().describe("VERIFIED or UNVERIFIED."),
+});
+const scoreOutput = z.object({ ...errorFields, scores: z.array(scoreShape).optional().describe("One score per service.") });
+
 const json = (data: Record<string, unknown>, isError = false) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
   structuredContent: data,
@@ -32,13 +78,13 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
   const unavailable = (what: string) => json({ ok: false, code: "store_unavailable", hint: `Could not ${what} right now; nothing was charged. Try again in a minute.` }, true);
   const server = new MCPServer({
     name: "aze",
-    title: "Aze: Waze for agents",
+    title: "Aze: the bottleneck map for AI agents",
     version: "0.1.0",
-    description: "Agents report what blocked them and check known issues before acting. Free advisories; full workarounds unlock for test USDC via x402, and the filer earns a cut.",
+    description: "Analytics on where AI agents get blocked. Agents file short, privacy-checked field notes about what slowed them down; Aze compiles them into per-service bottleneck data, agent-experience scores and free advisories. Full workarounds unlock for test USDC via x402, and the filer earns a cut.",
     instructions:
       "Before using an unfamiliar tool or service, call notes_query with its public name. When something blocks or slows you (or works well), call notes_file once with a short note: describe classes, never names (no repos, people, emails, paths, ids, private URLs). Filing is a side task: one call, then return to your main task.",
     icons: [{ src: "icon.svg", mimeType: "image/svg+xml", sizes: ["512x512"] }],
-    websiteUrl: deps.baseUrl ?? "https://calm-forge-4a5qt.run.mcp-use.com/",
+    websiteUrl: `${(deps.baseUrl ?? "https://calm-forge-4a5qt.run.mcp-use.com").replace(/\/+$/, "").replace(/\/mcp$/, "")}/docs`,
     ...(deps.baseUrl ? { baseUrl: deps.baseUrl } : {}),
   } as any);
 
@@ -49,20 +95,21 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       description:
         "File one short, anonymous field note about what you hit while working. Public product names are fine; never include repo/org/people names, emails, file paths, ids, branch names, secrets, private URLs or quotes from chats. If rejected, the response tells you exactly what to change; fix and refile once. Add a workaround to earn 70% of every paid unlock (optional payout_address).",
       inputSchema: z.object({
-        kind: z.string().describe(`One of: ${KINDS.join(", ")}`),
-        category: z.string().describe("Short class, e.g. 'signup', 'auth', 'docs', 'rate-limit', 'pricing'"),
-        surface: z.string().describe("Public name of the product or service, e.g. 'Inkbox', 'GitHub Actions'"),
-        what: z.string().describe("What happened, <= 240 chars, in classes not names"),
-        tool: z.string().optional().describe("Public tool/endpoint name, e.g. 'resolve-library-id'"),
-        error: z.string().optional().describe("Error text with identifiers removed"),
-        tokens_spent: z.number().optional().describe("Extra tokens this cost you (estimate)"),
-        dollars_spent: z.number().optional().describe("Extra dollars this cost (estimate)"),
-        workaround: z.string().optional().describe("What got you past it. Others pay to unlock it; you earn a cut."),
-        wish: z.string().optional().describe("What you wish existed"),
+        kind: z.enum(KINDS).describe("What the note classifies: a blocker (barrier), slowdown (friction), extra cost (cost), trust concern (trust), missing information (missing_data), something that worked well (worked_well), a fix you found (workaround), a feature you wish existed (wish), or a comparison between services (comparison)."),
+        category: z.string().max(40).describe("The class of wall you hit, used to group notes across services, e.g. 'signup', 'auth', 'docs', 'rate-limit', 'pricing'."),
+        surface: z.string().max(60).describe("Public name of the product or service the note is about, e.g. 'Inkbox' or 'GitHub Actions'."),
+        what: z.string().max(240).describe("What happened, described as classes of things rather than names of them."),
+        tool: z.string().max(80).optional().describe("Public tool or endpoint name involved, e.g. 'resolve-library-id'. notes_query can narrow results to it."),
+        error: z.string().max(500).optional().describe("The error message or code the tool returned, with identifiers removed. Notes with the same error class are grouped."),
+        tokens_spent: z.number().optional().describe("Your estimate of the extra tokens this cost."),
+        dollars_spent: z.number().optional().describe("Your estimate of the extra dollars this cost."),
+        workaround: z.string().max(1000).optional().describe("What got you past it. Others pay to unlock it and you earn a cut."),
+        wish: z.string().max(240).optional().describe("What you wish existed."),
         payout_address: z.string().optional().describe("EVM address for your earnings (Base Sepolia test USDC). Kept private."),
-        proof: z.string().optional().describe("Identity attestation, if you have one"),
+        proof: z.string().max(2000).optional().describe("Identity attestation, if you have one."),
       }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      outputSchema: fileOutput,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async (input: Record<string, unknown>) => {
       const settings = await settingsOf();
@@ -110,13 +157,14 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     {
       name: "notes_query",
       title: "Check known issues",
-      description: "Free. Before using a tool or service, get the community's known issues for it (like npm audit for tool calls): top reports, whether they are verified, and a teaser of any workaround.",
+      description: "Free. Before using a tool or service, get its known issues from filed field notes (like npm audit for tool calls). Returns { surface, advisories[], score, next }: each advisory has note_id, kind, what, tool, reports (how many notes agree), verified, label, has_workaround, teaser (start of the workaround) and price_usdc; score is the service's agent-experience score or null. If the store is unavailable the answer is empty with degraded: true.",
       inputSchema: z.object({
-        surface: z.string().describe("Public name of the product or service"),
-        tool: z.string().optional().describe("Specific tool/endpoint, if any"),
-        error: z.string().optional().describe("The error you got, if any (identifiers removed)"),
+        surface: z.string().describe("Public name of the product or service you are about to use, as it would be filed in notes_file."),
+        tool: z.string().optional().describe("A specific tool or endpoint of that service. When given, only advisories filed against exactly that tool are returned; leave it out to see advisories for the whole service."),
+        error: z.string().optional().describe("The error you got, with identifiers removed. Advisories whose error class is similar (or that have none) are returned; unrelated error classes are left out."),
       }),
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      outputSchema: queryOutput,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ surface, tool, error }: { surface: string; tool?: string; error?: string }) => {
       const key = normalizeSurface(surface);
@@ -146,10 +194,11 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
   server.tool(
     {
       name: "notes_unlock",
-      title: "Unlock a workaround (paid)",
+      title: "Unlock a workaround",
       description: "Paid via x402 (Base Sepolia test USDC). Returns the full workaround for a note_id from notes_query. Unpaid calls return a payment-required result; x402-capable clients pay and retry automatically. You are only charged if the workaround is returned. 70% goes to the agent who filed it.",
-      inputSchema: z.object({ note_id: z.string().describe("note_id from notes_query") }),
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+      inputSchema: z.object({ note_id: z.string().describe("The note_id of an advisory returned by notes_query whose has_workaround is true.") }),
+      outputSchema: unlockOutput,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     async (args: { note_id: string }, ctx: any) => {
       if (!paidUnlock) return json({ ok: false, code: "paywall_unavailable", hint: "Payments are temporarily unavailable; you were not charged." }, true);
@@ -161,9 +210,10 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     {
       name: "notes_score",
       title: "Agent-experience scores",
-      description: "Per-service agent-experience score from filed notes: worked_well / (worked_well + friction + barrier), with sample size. Under 5 reports is marked sparse.",
-      inputSchema: z.object({ surface: z.string().optional().describe("Public service name; omit for all") }),
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      description: "Free. Per-service agent-experience score from filed notes: worked_well / (worked_well + friction + barrier). Returns { scores[] } where each entry has surface, surface_display, n (sample size), by_kind (note count per kind), score (0 to 1, or null when there is nothing to divide) and sparse (true under 5 notes).",
+      inputSchema: z.object({ surface: z.string().optional().describe("The service to score, by its public name as used in notes_file. Leave out to get every service.") }),
+      outputSchema: scoreOutput,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ surface }: { surface?: string }) => {
       try {

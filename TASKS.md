@@ -30,3 +30,14 @@
 - [x] Supabase project + migrations 0001, 0002
 - [x] Buyer wallet funded (20 test USDC)
 - [x] Ken: rotated the Supabase secret key that was pasted into a chat
+
+## Session 4 (2026-10-20): reframe + Manufact leaderboard docs
+- [x] Drop "Waze for agents" from every live surface; new hook "Aze: the bottleneck map for AI agents" + Ken's three lines
+- [x] Data business out of the README, parked in docs/ideas/business-model.md (+ "build and sell the solutions" angle)
+- [x] Tool docs per the Manufact report: idempotentHint on all 4, outputSchema on all 4, meaning-first inputs, limits moved into the schema, notes_unlock title shortened and readOnlyHint corrected to false
+- [x] websiteUrl -> new /docs page
+- [x] Dashboard tests updated to the Clef labels (Ken: copy states the final outcome; Clef work ships before the rescore)
+- [ ] Ken: merge the PR, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
+- [ ] Ship the Clef-Omni work (HANDOFF 2026-10-19) BEFORE the rescore
+- [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
+

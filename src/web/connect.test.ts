@@ -11,7 +11,7 @@ describe("connectHtml", () => {
     expect(html).toContain(`${BASE}/mcp`);
     expect(html).toContain(`claude mcp add --transport http aze ${BASE}/mcp`);
     expect(html).toContain("&quot;mcpServers&quot;");
-    expect(html).toContain("Waze for agents");
+    expect(html).toContain("bottleneck map for AI agents");
   });
 
   it("says test mode, the privacy rule, the price split, and links the dashboard and QR", () => {
@@ -100,7 +100,7 @@ describe("routes", () => {
     const { routes, ctx } = harness();
     const r = routes["GET /"](ctx("http://localhost:3400/"));
     expect(r.status).toBe(200);
-    expect(r.body).toContain("Waze for agents.");
+    expect(r.body).toContain("the bottleneck map for AI agents");
     expect(r.body).toContain('href="/connect"');
     expect(r.body).toContain('href="/dashboard"');
   });

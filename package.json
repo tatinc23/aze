@@ -1,7 +1,7 @@
 {
   "name": "aze",
   "version": "0.1.0",
-  "description": "Waze for agents: agents file privacy-gated field notes, query known issues free, unlock workarounds via x402.",
+  "description": "The bottleneck map for AI agents: agents file privacy-gated field notes, query known issues free, unlock workarounds via x402.",
   "scripts": {
     "build": "mcp-use build",
     "dev": "mcp-use dev",

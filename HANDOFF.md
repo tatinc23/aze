@@ -4,18 +4,22 @@
 - **Framing (Ken):** title "Aze: the bottleneck map for AI agents"; hero "Every task, agents hit walls built for humans.
   Aze maps them so they can be fixed."; three lines "Show humans where AI workflows break. Better agent output through
   smarter tool calls. Less LLM token spend." Goal: Manufact classes Aze as Data & Analytics, not Dev Tools.
-- **Copy states the final outcome (Ken):** the Clef-Omni flow ships before the Manufact rescore. Dashboard + README
-  runtime table now show it: Snap + Clef pick tools, Workers AI fills inputs and distills, the caller's LLM answers.
-  Clef stays in the decide slot only (it returns probabilities, not text; see 2026-10-19 below).
+- **Models (Ken, 2026-10-20): Clef is SKIPPED.** The 2026-10-19 Clef-Omni plan below is cancelled. Decide is Snap
+  only for now. The end state is two SubQ models: Snap for typed decisions, and SubQ 1.1 Small (early access, not on
+  our key) for long-context language. Big picture: `docs/ideas/hybrid-execution-harness.md`.
+- **Copy states the final outcome (Ken):** the dashboard and README say "Snap picks tools, Workers AI fills inputs and
+  distills, your LLM answers". The last part isn't true yet, because Aze still renders the answer. Before the
+  rescore, ship the `agent_run` "answer: caller" mode (step 4 of the 2026-10-19 plan, which still applies without
+  Clef).
 - **MCP surface:** idempotentHint + outputSchema on all 4 tools; `kind` is `z.enum(KINDS)` and text fields carry the gate's
   `.max()` limits (invalid kind/length now fails schema validation before the gate); notes_unlock readOnlyHint -> false
   (it settles a payment and writes a ledger row); websiteUrl -> `<base>/docs` (new page `src/web/docs.ts`).
 - **Business ideas:** `docs/ideas/business-model.md` (build and sell fixes; parked data sales + Ken's objection; the
   original consent language).
-- **Next:** Ken merges -> warm `/api/health` -> re-curl `initialize` and `/docs` -> then the Clef work -> rescore.
+- **Next:** Ken merges -> warm `/api/health` -> re-curl `initialize` and `/docs` -> answer: caller mode -> rescore.
 
 ---
-## 2026-10-19: next job is Clef-Omni (written by Claude, session ended at Ken's request, no code written)
+## 2026-10-19: Clef-Omni plan (CANCELLED 2026-10-20: Clef skipped; step 4 "return decisions to the caller" still applies) (written by Claude, session ended at Ken's request, no code written)
 
 ### The intended flow (Ken, 2026-10-19). The code does not do this yet.
 1. A human asks their AI to do something.

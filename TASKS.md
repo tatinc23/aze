@@ -36,8 +36,9 @@
 - [x] Data business out of the README, parked in docs/ideas/business-model.md (+ "build and sell the solutions" angle)
 - [x] Tool docs per the Manufact report: idempotentHint on all 4, outputSchema on all 4, meaning-first inputs, limits moved into the schema, notes_unlock title shortened and readOnlyHint corrected to false
 - [x] websiteUrl -> new /docs page
-- [x] Dashboard tests updated to the Clef labels (Ken: copy states the final outcome; Clef work ships before the rescore)
+- [x] Pipeline copy states the final flow (Ken): Snap picks tools, Workers AI structures, your LLM answers. Clef skipped (Ken 2026-10-20)
 - [ ] Ken: merge the PR, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
-- [ ] Ship the Clef-Omni work (HANDOFF 2026-10-19) BEFORE the rescore
+- [ ] Ship `agent_run` answer: caller mode (HANDOFF 2026-10-19 step 4) BEFORE the rescore, so "your LLM answers" is true
+- [ ] Later: SubQ 1.1 Small for the language tier when the key has it; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
 

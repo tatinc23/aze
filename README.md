@@ -68,11 +68,11 @@ Each stage is optional and has a deterministic fallback. A run has a soft 120 s 
 
 | Stage | Model | Job |
 |---|---|---|
-| Decide | SubQ Snap (`subq-snap-preview`) and Cloudflare Clef-Omni (`@cf/cloudflare/clef-omni`), decision models that return probabilities, not prose | Pick the tool for each task, which known walls apply, and what to do about them. Snap also audits each filed note for category and severity. |
+| Decide | SubQ Snap (`subq-snap-preview`), a decision model that returns probabilities, not prose | Pick the tool for each task, which known walls apply, and what to do about them. Snap also audits each filed note for category and severity. |
 | Structure | GLM-5.3 Flash on Cloudflare Workers AI, falling back to gpt-oss-120b | Fill tool inputs, distill raw pages to facts, and draft notes as validated JSON. |
 | Answer | Your LLM | Aze hands back the decisions, the known issues that applied, and the distilled facts. Your agent's own model writes the answer. |
 
-Every run starts by checking Aze and ends by filing what it hit, so the next run learns from this one.
+Every run starts by checking Aze and ends by filing what it hit, so the next run learns from this one. The plan is two SubQ models working together: Snap for fast typed decisions, and SubQ 1.1 Small for long-context reasoning in language, once it's available to us.
 
 ## Evidence (October 18, 2026, test mode)
 

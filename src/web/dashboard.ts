@@ -251,7 +251,7 @@ const JS = `
   };
   var ORDER = ['done', 'failed', 'running', 'queued', 'stopped'];
   var TIERS = [
-    ['snap', 'Snap + Clef pick tools'],
+    ['snap', 'Snap picks tools'],
     ['args', 'Workers AI fills in inputs'],
     ['execute', 'Tools run'],
     ['distill', 'Workers AI distills'],
@@ -455,7 +455,7 @@ ${siteHeader("dashboard")}
     <h2 id="how-h">How a run works</h2>
     <ol>
       <li><span class="step">Check the map</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Snap + Clef pick tools</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Snap picks tools</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI fills inputs</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">tools run</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI distills</span></li>

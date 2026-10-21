@@ -37,8 +37,8 @@
 - [x] Tool docs per the Manufact report: idempotentHint on all 4, outputSchema on all 4, meaning-first inputs, limits moved into the schema, notes_unlock title shortened and readOnlyHint corrected to false
 - [x] websiteUrl -> new /docs page
 - [x] Pipeline copy states the final flow (Ken): Snap picks tools, Workers AI structures, your LLM answers. Clef skipped (Ken 2026-10-20)
-- [ ] Ken: merge the PR, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
-- [x] BEFORE the rescore: Snap-only `agent_run` (task + caller's tools in; Snap decisions + advisories out; caller's LLM does the rest) and remove Workers AI (Ken 2026-10-20). Branch `claude/agent-run-decide-only`
+- [ ] Ken: merge #13, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
+- [ ] PARKED: PR #14 (Snap-only `agent_run`, Workers AI removed; built on branch `claude/agent-run-decide-only`) stays open, no more work. Whether `agent_run` stays in the product waits on Ken's SubQ 1.1 Small review (2026-10-21). Not needed for the rescore: `agent_run` isn't a public tool.
 - [ ] Later: SubQ 1.1 Small on the key -> set SUBQ_CHAT_MODEL, wire the bottleneck-report job; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
 
@@ -47,7 +47,7 @@
 - [x] Workers AI + the old args/distill/note-writer roles removed; swarm and /admin/run decide-only over the catalog
 - [x] SubQ chat client kept unwired for SubQ 1.1 Small (Ken): job = synthesize filed notes into bottleneck reports
 - [x] Dashboard "How a run works" + economics (map check, Snap) and README runtime table / token-savings copy updated
-- [ ] Ken: merge PR #13, then this PR; delete the unused env vars listed in HANDOFF.md
+- [ ] Ken: merge PR #13; this PR is parked (see Session 4); after it merges, delete the unused env vars listed in HANDOFF.md
 - [ ] Ken: delete or keep `src/runtime/executors.ts` / `fetch.ts` / `mcp-client.ts` (unwired now)
 - [ ] After deploy: one real agent_run against live Snap (needs RUNTIME_ACCESS_KEY), then rerun the Manufact scoring
 - [ ] Later: let Snap see the advisories when it scores (today they come back next to the pick)

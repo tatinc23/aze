@@ -38,7 +38,7 @@
 - [x] websiteUrl -> new /docs page
 - [x] Pipeline copy states the final flow (Ken): Snap picks tools, Workers AI structures, your LLM answers. Clef skipped (Ken 2026-10-20)
 - [ ] Ken: merge the PR, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
-- [ ] Ship `agent_run` answer: caller mode (HANDOFF 2026-10-19 step 4) BEFORE the rescore, so "your LLM answers" is true
+- [ ] BEFORE the rescore: Snap-only `agent_run` (task + caller's tools in; Snap decisions + advisories out; caller's LLM does the rest) and remove Workers AI (Ken 2026-10-20)
 - [ ] Later: SubQ 1.1 Small for the language tier when the key has it; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
 

@@ -49,7 +49,8 @@ const advisoryShape = z.object({
   reports: z.number().describe("How many notes report the same service, tool and error class."),
   verified: z.boolean(), label: z.enum(["VERIFIED", "UNVERIFIED"]), has_workaround: z.boolean(),
   teaser: z.string().nullable().describe("Start of the workaround, when there is one."),
-  price_usdc: z.string().nullable().describe("Test USDC price to unlock the workaround, when there is one."),
+  price_usdc: z.string().nullable().describe("Test USDC price to unlock the workaround (paid mode); null in free mode."),
+  workaround: z.string().nullable().optional().describe("Free mode: the full workaround (null when there is none). Absent in paid mode."),
 });
 /** agent_run's structuredContent. Error results are isError and carry only ok/code/hint (fields optional below). */
 export const runOutput = z.object({
@@ -112,12 +113,12 @@ export function seedOnce(runs: RunStore, env: NodeJS.ProcessEnv = process.env): 
 
 export function registerRuntimeTools(
   server: unknown,
-  deps: { store: Store; runtime: RuntimeDeps; baseUrl?: string; env?: NodeJS.ProcessEnv; pipeline?: Pipeline; now?: () => number },
+  deps: { store: Store; runtime: RuntimeDeps; baseUrl?: string; env?: NodeJS.ProcessEnv; pipeline?: Pipeline; now?: () => number; free?: boolean },
 ): void {
   const env = deps.env ?? process.env;
   const runtime = deps.runtime;
   seedOnce(runtime.runs, env);
-  const pipeline = deps.pipeline ?? createPipeline({ store: deps.store, runs: runtime.runs, router: runtime.router }, { env });
+  const pipeline = deps.pipeline ?? createPipeline({ store: deps.store, runs: runtime.runs, router: runtime.router, free: deps.free }, { env });
   const limiter = createLimiter(RUNS_PER_HOUR, HOUR_MS, deps.now);
   let inFlight = 0;
 

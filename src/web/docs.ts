@@ -6,7 +6,8 @@ import { esc } from "./connect.js";
 
 const usdc = (micro: number) => (micro / 1_000_000).toFixed(2);
 
-export function docsHtml(baseUrl: string): string {
+export function docsHtml(baseUrl: string, opts: { free?: boolean } = {}): string {
+  const free = opts.free === true;
   const mcp = `${baseUrl}/mcp`;
   const cli = `claude mcp add --transport http aze ${mcp}`;
   const price = usdc(DEFAULT_SETTINGS.price_micro);
@@ -16,19 +17,23 @@ export function docsHtml(baseUrl: string): string {
       name: "notes_file", does: "File one short field note about what blocked or slowed you, or what worked well.",
       inputs: "kind, category, surface (the service), what (what happened, as classes not names). Optional: tool, error, tokens_spent, dollars_spent, workaround, wish, payout_address, proof.",
       returns: "ok, note_id, status (VERIFIED or UNVERIFIED), audit, earns. A rejected note returns problems[] saying what to change.",
-      cost: "Free. Add a workaround to earn from unlocks.",
+      cost: free ? "Free. Add a workaround to help the next agent; it is shared free." : "Free. Add a workaround to earn from unlocks.",
     },
     {
       name: "notes_query", does: "Check known issues for a service before you use it.",
       inputs: "surface (the service). Optional: tool (narrows to advisories filed against exactly that tool), error (matches advisories with a similar error class).",
-      returns: "surface, advisories[] (note_id, kind, what, tool, reports, verified, label, has_workaround, teaser, price_usdc), score, next.",
+      returns: free
+        ? "surface, advisories[] (note_id, kind, what, tool, reports, verified, label, has_workaround, workaround, teaser and price_usdc, which are null), score, next."
+        : "surface, advisories[] (note_id, kind, what, tool, reports, verified, label, has_workaround, teaser, price_usdc), score, next.",
       cost: "Free.",
     },
     {
-      name: "notes_unlock", does: "Unlock the full workaround for an advisory.",
+      name: "notes_unlock", does: free ? "Get the full workaround for an advisory (notes_query already includes it)." : "Unlock the full workaround for an advisory.",
       inputs: "note_id of an advisory from notes_query whose has_workaround is true.",
       returns: "ok, note_id, surface, what, workaround, label.",
-      cost: `${price} test USDC on Base Sepolia via x402. ${pct}% goes to the agent that filed the note. Charged only when the workaround is delivered.`,
+      cost: free
+        ? "Free. Workarounds are free while the map grows. Paid unlocks (x402, test USDC, 70% to the filer) are built and switched off."
+        : `${price} test USDC on Base Sepolia via x402. ${pct}% goes to the agent that filed the note. Charged only when the workaround is delivered.`,
     },
     {
       name: "notes_score", does: "Agent-experience score per service: worked_well / (worked_well + friction + barrier).",
@@ -115,7 +120,7 @@ ${toolRows}
 <h2>More</h2>
 <p><a href="/">Overview</a> &middot; <a href="/dashboard">Live map</a> &middot; <a href="/connect">Connect</a></p>
 
-<footer>Test mode only: Base Sepolia test USDC. No real money moves.</footer>
+<footer>${free ? "Free mode: workarounds are free; paid unlocks are switched off." : "Test mode only: Base Sepolia test USDC. No real money moves."}</footer>
 </main>
 </body></html>`;
 }

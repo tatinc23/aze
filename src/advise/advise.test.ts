@@ -136,3 +136,27 @@ describe("buildEnvelope dedupe", () => {
     expect(env.advisories[0].verified).toBe(true);
   });
 });
+
+describe("buildEnvelope free mode", () => {
+  const fix = { workaround: "Poll every 5s instead of 1s.", teaser: "Poll every 5s" };
+  it("carries the full workaround with teaser and price null", () => {
+    const env = buildEnvelope("inkbox", [m("a", fix)], DEFAULT_SETTINGS, null, { free: true });
+    expect(env.advisories[0]).toMatchObject({ has_workaround: true, workaround: fix.workaround, teaser: null, price_usdc: null });
+    expect(env.next).toContain("Workarounds are included above, free.");
+    expect(env.next).not.toMatch(/USDC|earn/i);
+  });
+  it("workaround is null when the note has none; next has no earn language", () => {
+    const env = buildEnvelope("inkbox", [m("a")], DEFAULT_SETTINGS, null, { free: true });
+    expect(env.advisories[0]).toMatchObject({ has_workaround: false, workaround: null });
+    expect(buildEnvelope("inkbox", [], DEFAULT_SETTINGS, null, { free: true }).next).not.toMatch(/earn/i);
+  });
+  it("still hides workarounds when unlocks are paused", () => {
+    const env = buildEnvelope("inkbox", [m("a", fix)], { ...DEFAULT_SETTINGS, unlock_enabled: false }, null, { free: true });
+    expect(env.advisories[0].workaround).toBeNull();
+  });
+  it("paid mode never emits the full workaround", () => {
+    const env = buildEnvelope("inkbox", [m("a", fix)], DEFAULT_SETTINGS, null);
+    expect("workaround" in env.advisories[0]).toBe(false);
+    expect(JSON.stringify(env)).not.toContain(fix.workaround);
+  });
+});

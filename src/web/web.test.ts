@@ -258,6 +258,7 @@ describe("dashboard economics", () => {
     expect(h).not.toMatch(/Workers\sAI|distill|fills in inputs|Text kept/i);
     expect(h).toContain('<div class="label">Runs done</div><div class="v">97</div>');
     expect(h).toContain('<div class="label">Failed</div><div class="v">3</div>');
+    expect(h).toContain('<div class="label">Notes filed</div><div class="v">12</div>');
     expect(h).toContain('<div class="label">Snap cost</div><div class="v">$0.000050</div><div class="sub">per run, on average</div>');
     expect(h).toContain("Known cost so far: <b>$0.0050</b> over 100 runs. Only calls with a known price count: we do not guess prices.");
     expect(h).toContain('<th scope="col" class="n">Known cost, all runs</th>'); // RunStats sums known costs only

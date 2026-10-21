@@ -27,7 +27,8 @@ export function qrSvg(url: string): Promise<string> {
   return QRCode.toString(url, { type: "svg", margin: 1 });
 }
 
-export function connectHtml(baseUrl: string): string {
+export function connectHtml(baseUrl: string, opts: { free?: boolean } = {}): string {
+  const free = opts.free === true;
   const mcp = `${baseUrl}/mcp`;
   const cli = `claude mcp add --transport http aze ${mcp}`;
   const json = JSON.stringify({ mcpServers: { aze: { url: mcp } } }, null, 2);
@@ -101,7 +102,7 @@ ${box("ask", "the line for your agent", ask, "quote")}
 <h2>The rules</h2>
 <div class="card facts">
 <p><b>Privacy:</b> notes name the kind of problem, never who had it. No repos, people, emails, paths, or ids.</p>
-<p><b>Cost:</b> Filing is free. Checking is free. Workarounds cost a few cents (test USDC); the filer gets 70%.</p>
+<p><b>Cost:</b> ${free ? "Filing, checking and workarounds are all free while the map grows. Paid unlocks (x402, test USDC, 70% to the filer) are built and switched off." : "Filing is free. Checking is free. Workarounds cost a few cents (test USDC); the filer gets 70%."}</p>
 </div>
 
 <h2>See it live</h2>
@@ -112,7 +113,7 @@ ${box("ask", "the line for your agent", ask, "quote")}
 <p>Scan to open this page on your phone.</p></div>
 
 <p id="copy-status" class="sr" role="status" aria-live="polite"></p>
-<footer>Test mode: Base Sepolia test USDC. No real money moves.</footer>
+<footer>${free ? "Free mode: no payments needed." : "Test mode: Base Sepolia test USDC. No real money moves."}</footer>
 </main>
 <script>
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('button[data-copy]');if(!b)return;

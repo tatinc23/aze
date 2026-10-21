@@ -102,7 +102,7 @@ body.lean .how,body.lean .mid{display:none}
 .legend b{color:var(--ink)}
 .note{margin:8px 0 0;font-size:13px;color:var(--muted)}
 /* Economics */
-.ecosum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:0;list-style:none}
+.ecosum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:0;list-style:none}
 .ecosum li{background:var(--page);border:1px solid var(--border);border-radius:10px;padding:6px 10px;min-width:0}
 .ecosum .label{font-size:13px;color:var(--ink-2);font-weight:550}
 .ecosum .v{font-size:clamp(20px,1.6vw,28px);font-weight:650;line-height:1.15;overflow-wrap:anywhere}
@@ -340,6 +340,7 @@ const JS = `
       ['Runs done', num(st.done), ''],
       // "not finished", not "still running": a run cut off by a restart stays unfinished in the log forever.
       ['Failed', num(st.failed), Number(st.running) > 0 ? num(st.running) + ' not finished' : ''],
+      ['Notes filed', num(st.notes_filed), 'from friction'],
       ['Snap cost', val(cost, 'snap') ? usd(Number(cost.snap) / runs) : 'none yet', val(cost, 'snap') ? 'per run, on average' : '']
     ];
     box.innerHTML = '<ul class="ecosum">' + tiles.map(function(x){

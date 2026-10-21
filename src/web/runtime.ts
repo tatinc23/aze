@@ -39,6 +39,8 @@ export interface RuntimeWebDeps {
   store: Store;
   runtime: RuntimeDeps;
   adminKey?: string;
+  /** Free mode: map-check advisories carry the full workaround. */
+  free?: boolean;
   baseUrl?: string;
   /** Test seams; production uses the defaults. */
   pipeline?: Pipeline;
@@ -243,7 +245,7 @@ export function registerRuntimeWeb(app: any, deps: RuntimeWebDeps): void {
   const storeMs = deps.storeTimeoutMs ?? PUBLIC_STORE_TIMEOUT_MS;
   let pipeline: Pipeline | null = deps.pipeline ?? null;
   // Lazy: nothing is built until an operator runs something.
-  const getPipeline = (): Pipeline => (pipeline ??= createPipeline({ store: deps.store, runs: deps.runtime.runs, router: deps.runtime.router }));
+  const getPipeline = (): Pipeline => (pipeline ??= createPipeline({ store: deps.store, runs: deps.runtime.runs, router: deps.runtime.router, free: deps.free }));
   const runsCache = ttlCache<RunRecord[]>(cacheMs);
   const statsCache = ttlCache<RunStats>(cacheMs);
   const gate = storeGate(deps.maxInFlight ?? PUBLIC_MAX_IN_FLIGHT);

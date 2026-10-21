@@ -1,5 +1,6 @@
 // agent_run end to end over the real MCP surface: Aze's createServer (memory store) on an ephemeral port, the official
 // MCP SDK client (which validates structuredContent against the advertised outputSchema), and a fake Snap router.
+// Free mode (the default since 2026-10-21), so advisories carry the full workaround.
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../app.js";
 import { MemoryStore } from "../store/memory.js";
@@ -23,7 +24,7 @@ beforeAll(async () => {
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.stubEnv("RUNTIME_ACCESS_KEY", "e2e-key");
   vi.stubEnv("MCP_USE_PHASE", "");
-  server = createServer({ store, paywall: null, runtime }) as never;
+  server = createServer({ store, paywall: null, runtime, freeUnlocks: true }) as never;
   url = `http://localhost:${(await server.listen(0)).port}/mcp`;
   const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
   const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -55,6 +56,7 @@ describe("agent_run over MCP", () => {
   it("files a note, then returns Snap's pick with that note as an advisory (schema-valid), and logs the run", async () => {
     const filed = await client.callTool({ name: "notes_file", arguments: {
       kind: "barrier", category: "rate-limit", surface: "GitHub", tool: "github.search_code", what: "Code search returns 403 after a few unauthenticated calls",
+      workaround: "Wait a minute between searches, or search with a token that has the public repository scope.",
     } });
     const note_id = filed.structuredContent.note_id;
     expect(note_id).toBeTruthy();
@@ -73,10 +75,14 @@ describe("agent_run over MCP", () => {
     expect(out).toMatchObject({
       status: "done", decided_by: "SubQ Snap (test)", chosen: [{ tool: "github.search_code", p: 0.88 }],
       scores: [{ tool: "github.search_code", p: 0.88 }, { tool: "calendar.create_event", p: 0.07 }],
-      advisories: [{ note_id, surface: "github", tool: "github.search_code", kind: "barrier" }],
+      advisories: [{
+        note_id, surface: "github", tool: "github.search_code", kind: "barrier", has_workaround: true, price_usdc: null,
+        workaround: "Wait a minute between searches, or search with a token that has the public repository scope.",
+      }],
       cost_micro_usd: { snap: 45 }, error: null,
     });
     expect(out.next).toMatch(/^Aze does not run tools: call github\.search_code yourself/);
+    expect(out.next).toContain("workarounds are included");
     expect(Object.keys(out)).not.toContain("answer");
     const [rec] = await runs.listRuns({ limit: 1 });
     expect(rec).toMatchObject({ id: out.run_id, status: "done", surface: "GitHub", assets: [{ asset_id: "github.search_code", p: 0.88 }], answer: null });

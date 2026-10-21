@@ -70,6 +70,18 @@ describe("decide-only pipeline", () => {
     expect(rec).not.toHaveProperty("decision");
   });
 
+  it("free mode: advisories carry the full workaround, as in notes_query", async () => {
+    const store = new MemoryStore();
+    const n = await file(store, { kind: "workaround", category: "rate-limit", surface: "GitHub", tool: "github.search_code", what: "Code search limits unauthenticated callers", workaround: "Pause a minute between searches." });
+    const runs = new MemoryRunStore();
+    const router = routerOf([{ asset_id: "github.search_code", p: 0.9 }]);
+    const paid = await createPipeline({ store, runs, router }, { env: {} }).run("Find a function", "GitHub", ctx, TOOLS);
+    expect(paid.decision.advisories[0]).not.toHaveProperty("workaround");
+    const free = await createPipeline({ store, runs, router, free: true }, { env: {} }).run("Find a function", "GitHub", ctx, TOOLS);
+    expect(free.decision.advisories[0]).toMatchObject({ note_id: n.id, workaround: "Pause a minute between searches.", price_usdc: null, teaser: null });
+    expect(free.decision.next).toContain("workarounds are included");
+  });
+
   it("logs each map check as a query, like notes_query", async () => {
     const store = new MemoryStore();
     const spy = vi.spyOn(store, "logQuery");

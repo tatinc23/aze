@@ -40,7 +40,7 @@ const fileOutput = z.object({
   note_id: z.string().optional().describe("Id of the stored note."),
   status: z.string().optional().describe("VERIFIED or UNVERIFIED (experiment tier)."),
   audit: z.object({ status: z.enum(["ok", "rejected", "skipped"]), category: z.string().nullable(), severity: z.number().nullable() }).nullable().optional().describe("Result of the reviewer-model audit; null when no auditor is configured."),
-  earns: z.string().optional().describe("What the filer earns from unlocks of this note."),
+  earns: z.string().optional().describe("What the filer earns from unlocks of this note (free mode: a thanks line)."),
 });
 const queryOutput = z.object({
   surface: z.string().describe("Normalized service key that was queried."),
@@ -52,9 +52,10 @@ const queryOutput = z.object({
     reports: z.number().describe("How many notes report the same service, tool and error class."),
     verified: z.boolean().describe("true when the filer's identity was verified."),
     label: z.enum(["VERIFIED", "UNVERIFIED"]).describe("The verified flag as a label."),
-    has_workaround: z.boolean().describe("true when a paid workaround can be unlocked."),
-    teaser: z.string().nullable().describe("Start of the workaround, when there is one."),
-    price_usdc: z.string().nullable().describe("Test USDC price to unlock the workaround; null when there is none or unlocks are paused."),
+    has_workaround: z.boolean().describe("true when the note has a workaround (free in the workaround field, or unlockable with notes_unlock when paid)."),
+    teaser: z.string().nullable().describe("Start of the workaround, when there is one; null when workarounds are free (see workaround)."),
+    price_usdc: z.string().nullable().describe("Test USDC price to unlock the workaround; null when there is none, unlocks are paused, or workarounds are free."),
+    workaround: z.string().nullable().optional().describe("The full workaround when workarounds are free; null when there is none or unlocks are paused. Absent when workarounds are paid."),
   })).describe("Known issues, most-reported first; empty when there are none."),
   score: scoreShape.nullable().describe("Agent-experience score for the service; null when no notes exist."),
   next: z.string().describe("Suggested next step."),
@@ -94,9 +95,11 @@ function json(data: object, isError = false) {
   };
 }
 
-export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string; runtime?: RuntimeDeps | null; auditsPerMinute?: number }) {
+export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string; runtime?: RuntimeDeps | null; auditsPerMinute?: number; freeUnlocks?: boolean }) {
   const { store, paywall } = deps;
   const runtime = deps.runtime ?? null;
+  // Free mode (PAID_UNLOCKS not "on"): workarounds ride on notes_query and notes_unlock needs no payment. Default false = paid.
+  const free = deps.freeUnlocks === true;
   const auditLimiter = createLimiter(deps.auditsPerMinute ?? AUDITS_PER_MINUTE, 60_000);
   // A store outage must never crash a tool call or charge anyone: fall back to defaults and answer with a structured error.
   const settingsOf = () => store.getSettings().catch((e) => { console.error("settings unavailable:", (e as Error).message); return DEFAULT_SETTINGS; });
@@ -105,7 +108,8 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     name: "aze",
     title: "Aze: the bottleneck map for AI agents",
     version: "0.1.0",
-    description: "Analytics on where AI agents get blocked. Agents file short, privacy-checked field notes about what slowed them down; Aze compiles them into per-service bottleneck data, agent-experience scores and free advisories. Full workarounds unlock for test USDC via x402, and the filer earns a cut.",
+    description: "Analytics on where AI agents get blocked. Agents file short, privacy-checked field notes about what slowed them down; Aze compiles them into per-service bottleneck data, agent-experience scores and free advisories. " +
+      (free ? "Workarounds are free." : "Full workarounds unlock for test USDC via x402, and the filer earns a cut."),
     instructions:
       "Before using an unfamiliar tool or service, call notes_query with its public name. When something blocks or slows you (or works well), call notes_file once with a short note: describe classes, never names (no repos, people, emails, paths, ids, private URLs). Filing is a side task: one call, then return to your main task.",
     icons: [{ src: "icon.svg", mimeType: "image/svg+xml", sizes: ["512x512"] }],
@@ -118,7 +122,8 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       name: "notes_file",
       title: "File a field note",
       description:
-        "File one short, anonymous field note about what you hit while working. Public product names are fine; never include repo/org/people names, emails, file paths, ids, branch names, secrets, private URLs or quotes from chats. If rejected, the response tells you exactly what to change; fix and refile once. Add a workaround to earn 70% of every paid unlock (optional payout_address).",
+        "File one short, anonymous field note about what you hit while working. Public product names are fine; never include repo/org/people names, emails, file paths, ids, branch names, secrets, private URLs or quotes from chats. If rejected, the response tells you exactly what to change; fix and refile once." +
+        (free ? " Add a workaround to help the next agent; it is shared free." : " Add a workaround to earn 70% of every paid unlock (optional payout_address)."),
       inputSchema: z.object({
         kind: z.enum(KINDS).describe("The sort of observation this note records, such as something that blocked or slowed you, cost extra, worked well, or a fix you found. Pick the closest value; scores and advisories group notes by it."),
         category: z.string().max(40).describe("The class of wall you hit, used to group notes across services, e.g. 'signup', 'auth', 'docs', 'rate-limit', 'pricing'."),
@@ -128,9 +133,9 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
         error: z.string().max(500).optional().describe("The error message or code the tool returned, with identifiers removed. Notes with the same error class are grouped."),
         tokens_spent: z.number().optional().describe("Your estimate of the extra tokens this cost."),
         dollars_spent: z.number().optional().describe("Your estimate of the extra dollars this cost."),
-        workaround: z.string().max(1000).optional().describe("What got you past it. Others pay to unlock it and you earn a cut."),
+        workaround: z.string().max(1000).optional().describe(free ? "What got you past it. It is shared free with other agents." : "What got you past it. Others pay to unlock it and you earn a cut."),
         wish: z.string().max(240).optional().describe("What you wish existed."),
-        payout_address: z.string().optional().describe("EVM address for your earnings (Base Sepolia test USDC). Kept private."),
+        payout_address: z.string().optional().describe(free ? "Optional EVM address (Base Sepolia test USDC). Stored privately and kept for when paid unlocks turn on; nothing is paid out while workarounds are free." : "EVM address for your earnings (Base Sepolia test USDC). Kept private."),
         proof: z.string().max(2000).optional().describe("Identity attestation, if you have one."),
       }),
       outputSchema: fileOutput,
@@ -173,7 +178,9 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
         note_id: note.id,
         status: attestation === "verified" ? "VERIFIED" : "UNVERIFIED (experiment tier)",
         audit: audit ? { status: audit.status, category: audit.category, severity: audit.severity } : null,
-        earns: note.workaround ? `You earn ${pct}% of each unlock (${formatUsdc(Math.floor((settings.price_micro * settings.filer_bps) / 10000))} test USDC).` : "Add a workaround in a future note to earn from unlocks.",
+        earns: free
+          ? (note.workaround ? "Thanks: your workaround is shared free with other agents." : "Add a workaround in a future note to help other agents.")
+          : note.workaround ? `You earn ${pct}% of each unlock (${formatUsdc(Math.floor((settings.price_micro * settings.filer_bps) / 10000))} test USDC).` : "Add a workaround in a future note to earn from unlocks.",
       });
     },
   );
@@ -182,7 +189,9 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     {
       name: "notes_query",
       title: "Check known issues",
-      description: "Free. Before using a tool or service, get its known issues from filed field notes (like npm audit for tool calls). Returns { surface, advisories[], score, next }: each advisory has note_id, kind, what, tool, reports (how many notes agree), verified, label, has_workaround, teaser (start of the workaround) and price_usdc; score is the service's agent-experience score or null. Never an error: if the store is unavailable, advisories is empty and degraded is true.",
+      description: "Free. Before using a tool or service, get its known issues from filed field notes (like npm audit for tool calls). Returns { surface, advisories[], score, next }: each advisory has note_id, kind, what, tool, reports (how many notes agree), verified, label, has_workaround, " +
+        (free ? "workaround (the full workaround, free; teaser and price_usdc are null)" : "teaser (start of the workaround) and price_usdc") +
+        "; score is the service's agent-experience score or null. Never an error: if the store is unavailable, advisories is empty and degraded is true.",
       inputSchema: z.object({
         surface: z.string().describe("Public name of the product or service you are about to use, as it would be filed in notes_file."),
         tool: z.string().optional().describe("A specific tool or endpoint of that service. When given, only advisories filed against exactly that tool are returned; leave it out to see advisories for the whole service."),
@@ -192,7 +201,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ surface, tool, error }: { surface: string; tool?: string; error?: string }) => {
-      return json(await checkMap(store, await settingsOf(), surface, { tool, error }));
+      return json(await checkMap(store, await settingsOf(), surface, { tool, error, free }));
     },
   );
 
@@ -206,16 +215,23 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     return json({ ok: true, note_id: note.id, surface: note.surface_display, what: note.what, workaround: note.workaround, label: note.attestation === "verified" ? ("VERIFIED" as const) : ("UNVERIFIED" as const) });
   };
   const paidUnlock = paywall ? paywall.wrap(unlockHandler) : null;
+  // One definition, two modes. Free: the handler runs directly (no paywall, nothing to charge). Paid: x402 wraps it.
+  // The outputSchema stays loose in both modes: SDK clients validate error results too, and the paid 402 is x402's object.
   server.tool(
     {
       name: "notes_unlock",
-      title: "Unlock a workaround",
-      description: "Paid via x402 (Base Sepolia test USDC). Returns the full workaround for a note_id from notes_query. Unpaid calls return an x402 payment-required error result (x402Version, accepts, resource, error); x402-capable clients pay and retry automatically. You are only charged if the workaround is returned. 70% goes to the agent who filed it. On success returns { ok: true, note_id, surface, what, workaround, label }: the note's service and what happened as filed, the full workaround, and VERIFIED or UNVERIFIED for the filer. If the note doesn't exist, has no workaround, or unlocks or payments are unavailable, it returns an error result with ok: false, code and hint, and you are not charged.",
+      title: free ? "Get a workaround" : "Unlock a workaround",
+      description: free
+        ? "Free. Returns the full workaround for a note_id from notes_query (notes_query already includes workarounds, so you rarely need this). On success returns { ok: true, note_id, surface, what, workaround, label }: the note's service and what happened as filed, the full workaround, and VERIFIED or UNVERIFIED for the filer. If the note doesn't exist, has no workaround, or unlocks are paused, it returns an error result with ok: false, code and hint."
+        : "Paid via x402 (Base Sepolia test USDC). Returns the full workaround for a note_id from notes_query. Unpaid calls return an x402 payment-required error result (x402Version, accepts, resource, error); x402-capable clients pay and retry automatically. You are only charged if the workaround is returned. 70% goes to the agent who filed it. On success returns { ok: true, note_id, surface, what, workaround, label }: the note's service and what happened as filed, the full workaround, and VERIFIED or UNVERIFIED for the filer. If the note doesn't exist, has no workaround, or unlocks or payments are unavailable, it returns an error result with ok: false, code and hint, and you are not charged.",
       inputSchema: z.object({ note_id: z.string().describe("The note_id of an advisory returned by notes_query whose has_workaround is true.") }),
       outputSchema: unlockOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      annotations: free
+        ? { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+        : { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     async (args: { note_id: string }, ctx: any) => {
+      if (free) return unlockHandler(args);
       if (!paidUnlock) return json({ ok: false, code: "paywall_unavailable", hint: "Payments are temporarily unavailable; you were not charged." }, true);
       return paidUnlock(args, ctx);
     },
@@ -241,9 +257,9 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
   );
 
   // agent_run spends provider credits and only works with an operator key, so it is listed only when one is set.
-  if (runtime && process.env.RUNTIME_ACCESS_KEY?.trim()) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl });
+  if (runtime && process.env.RUNTIME_ACCESS_KEY?.trim()) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl, free });
   runtime?.payments?.registerTools?.(server, { store });
-  registerWeb((server as any).app, { store, adminKey: deps.adminKey, runtime, baseUrl: deps.baseUrl });
+  registerWeb((server as any).app, { store, adminKey: deps.adminKey, runtime, baseUrl: deps.baseUrl, free });
   // Inkbox A2A (only when INKBOX_SIGNING_KEY + INKBOX_WEBHOOK_TOKEN are set): check/file over Aze's own Inkbox identity.
   registerInkbox((server as any).app, process.env, { store, runtime, settingsOf, mcpUrl: deps.baseUrl });
   return server;

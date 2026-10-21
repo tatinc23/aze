@@ -13,13 +13,16 @@ export function formatUsdc(micro: number): string {
 }
 
 /** Build the free advisory envelope notes_query returns. Matches arrive ranked by the store; order is kept. */
-export function buildEnvelope(surface: string, matches: Match[], settings: Settings, score: SurfaceScore | null): Envelope {
+export function buildEnvelope(surface: string, matches: Match[], settings: Settings, score: SurfaceScore | null, opts: { free?: boolean } = {}): Envelope {
+  const free = opts.free === true;
   // Lazy: a bad price setting must not break the free envelope when nothing is for sale.
   let price: string | undefined;
   const priceUsdc = () => (price ??= formatUsdc(settings.price_micro));
   const advisories: Advisory[] = dedupe(matches).slice(0, MAX_ADVISORIES).map(({ note, reports }) => {
     const verified = note.attestation === "verified";
     const has_workaround = note.workaround != null;
+    // Free mode: the full workaround rides on the advisory (still hidden when unlocks are paused by the operator).
+    const open = free && has_workaround && settings.unlock_enabled;
     return {
       note_id: note.id,
       kind: note.kind,
@@ -29,26 +32,27 @@ export function buildEnvelope(surface: string, matches: Match[], settings: Setti
       verified,
       label: verified ? "VERIFIED" : "UNVERIFIED",
       has_workaround,
-      teaser: has_workaround ? safeTeaser(note.workaround as string, note.teaser) : null,
-      price_usdc: has_workaround && settings.unlock_enabled ? priceUsdc() : null,
+      teaser: free ? null : has_workaround ? safeTeaser(note.workaround as string, note.teaser) : null,
+      price_usdc: !free && has_workaround && settings.unlock_enabled ? priceUsdc() : null,
+      ...(free ? { workaround: open ? (note.workaround as string) : null } : {}),
     };
   });
-  return { surface, advisories, score, next: nextStep(advisories, settings, priceUsdc) };
+  return { surface, advisories, score, next: free ? nextStepFree(advisories) : nextStep(advisories, settings, priceUsdc) };
 }
 
 /** The map check behind notes_query (and agent_run's first step): known issues for one service, optionally narrowed
  * to a tool or an error. Logs the query. Never throws: a store failure gives an empty envelope with degraded: true. */
-export async function checkMap(store: Store, settings: Settings, surface: string, opts: { tool?: string | null; error?: string | null } = {}): Promise<Envelope> {
+export async function checkMap(store: Store, settings: Settings, surface: string, opts: { tool?: string | null; error?: string | null; free?: boolean } = {}): Promise<Envelope> {
   const key = normalizeSurface(surface);
   const tool = opts.tool?.trim() || null;
   try {
     const matches = await store.findMatches({ surface: key, tool, error_class: opts.error ? errorClass(opts.error) : null }, MAX_ADVISORIES);
     const score = (await store.scores(key))[0] ?? null;
     await store.logQuery({ surface: key, tool, matched: matches.length });
-    return buildEnvelope(key, matches, settings, score);
+    return buildEnvelope(key, matches, settings, score, { free: opts.free });
   } catch (e) {
     console.error("notes_query degraded:", (e as Error).message);
-    return { ...buildEnvelope(key, [], settings, null), degraded: true };
+    return { ...buildEnvelope(key, [], settings, null, { free: opts.free }), degraded: true };
   }
 }
 
@@ -94,4 +98,10 @@ function nextStep(advisories: Advisory[], settings: Settings, price: () => strin
     return `Call notes_unlock with note_id to get the full workaround (${price()} test USDC; ${pct}% goes to the agent who filed it).`;
   }
   return "No paid workaround yet. If you solve it, call notes_file with kind 'workaround' and earn a cut of every unlock.";
+}
+
+function nextStepFree(advisories: Advisory[]): string {
+  if (advisories.length === 0) return "No known issues for this surface yet. If you hit one, call notes_file.";
+  if (advisories.some((a) => a.workaround)) return "Workarounds are included above, free. If you hit something new, call notes_file.";
+  return "No workaround yet. If you solve it, call notes_file with kind 'workaround' so the next agent gets it.";
 }

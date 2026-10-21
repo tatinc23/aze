@@ -30,6 +30,8 @@ export interface PipelineDeps {
   /** The run log. */
   runs: RunStore;
   router: Router | null;
+  /** Free mode (PAID_UNLOCKS not on): advisories carry the full workaround, as in notes_query. */
+  free?: boolean;
 }
 
 export interface PipelineOptions {
@@ -76,9 +78,10 @@ const toolList = (names: string[]) => names.length === 1 ? names[0] : `${names.s
 export function nextStep(d: { decided_by: string | null; chosen: string[]; advisories: ToolAdvisory[] }): string {
   const file = "If a tool blocks or slows you, file one note with notes_file.";
   const n = d.advisories.length;
-  const issues = n
-    ? ` Read the ${n} known issue${n === 1 ? "" : "s"} below first${d.advisories.some((a) => a.has_workaround && a.price_usdc) ? "; notes_unlock returns a paid workaround by note_id" : ""}.`
-    : "";
+  const how = d.advisories.some((a) => a.workaround)
+    ? "; workarounds are included"
+    : d.advisories.some((a) => a.has_workaround && a.price_usdc) ? "; notes_unlock returns a paid workaround by note_id" : "";
+  const issues = n ? ` Read the ${n} known issue${n === 1 ? "" : "s"} below first${how}.` : "";
   if (!d.decided_by) return `Snap was unavailable, so no tool was ranked: pick tools yourself and run them.${issues} ${file}`;
   if (!d.chosen.length) return `Snap found no candidate tool needed for this task (none at p >= ${MIN_P}): answer without them or pick one yourself.${issues} ${file}`;
   return `Aze does not run tools: call ${toolList(d.chosen)} yourself with your own inputs, then write the answer.${issues} ${file}`;
@@ -104,6 +107,7 @@ export function applicableAdvisories(tools: Candidate[], envelopes: Map<string, 
 
 export function createPipeline(deps: PipelineDeps, opts: PipelineOptions = {}): Pipeline {
   const { store, runs, router } = deps;
+  const free = deps.free === true;
   const env = opts.env ?? process.env;
   const storeMs = opts.storeTimeoutMs ?? STORE_TIMEOUT_MS;
   let cache: { at: number; tools: Candidate[] } | null = null;
@@ -183,7 +187,7 @@ export function createPipeline(deps: PipelineDeps, opts: PipelineOptions = {}): 
         const checked = services.slice(0, MAX_SURFACES);
         const set = await settings();
         const res = await Promise.all(checked.map((s) =>
-          withTimeout(checkMap(store, set, s), storeMs, "map check").catch(() => ({ surface: normalizeSurface(s), advisories: [], score: null, next: "", degraded: true } as Envelope))));
+          withTimeout(checkMap(store, set, s, { free }), storeMs, "map check").catch(() => ({ surface: normalizeSurface(s), advisories: [], score: null, next: "", degraded: true } as Envelope))));
         let n = 0, degraded = 0;
         for (const e of res) {
           envelopes.set(e.surface, e);

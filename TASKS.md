@@ -41,6 +41,7 @@
 - [ ] PARKED: PR #14 (Snap-only `agent_run`, Workers AI removed; built on branch `claude/agent-run-decide-only`) stays open, no more work. Whether `agent_run` stays in the product waits on Ken's SubQ 1.1 Small review (2026-10-21). Not needed for the rescore: `agent_run` isn't a public tool.
 - [ ] Later: SubQ 1.1 Small on the key -> set SUBQ_CHAT_MODEL, wire the bottleneck-report job; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
+- [x] Free mode (Ken 2026-10-21): workarounds free by default, `PAID_UNLOCKS=on` brings back x402; dashboard and README drop Workers AI
 
 ## Session 5 (2026-10-20): decide-only agent_run
 - [x] agent_run: task + caller's tools in; map check, Snap scores, advisories + next step out; outputSchema `runOutput`

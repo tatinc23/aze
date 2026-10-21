@@ -45,6 +45,9 @@ client stays unwired for SubQ 1.1 Small (see the SubQ gotcha below).
 - mcp-use tool handlers get `ctx.params._meta`, not `extra._meta`. Wrap paid handlers as
   `paid(handler)(args, { _meta: ctx?.params?._meta })` or payment is never seen (proved in `spike/`).
 - `@x402/mcp` does NOT settle when the handler returns `isError` or throws; write ledger rows in `onAfterSettlement`.
+- MCP SDK clients validate `structuredContent` against `outputSchema` even on `isError` results (sdk 1.32
+  `Client.callTool`). Every error shape a tool returns must pass its schema. `notes_unlock`'s 402 returns x402's
+  payment-required object, so its schema stays a loose object. A strict one breaks auto-pay (bug shipped in #13, fixed in #15).
 - The Claude cloud container's network policy blocks x402.org, sepolia.base.org, *.run.mcp-use.com, *.supabase.co
   unless Ken allowlists them. Manufact runtime logs (Manufact MCP tools) are the way to observe the live server.
 - Privacy: never log or store rejected note input. Public product names are OK; repo/people/org names, emails,

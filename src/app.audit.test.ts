@@ -65,6 +65,19 @@ describe("tool metadata", () => {
       expect(q.isError).toBeFalsy();
       const s = await client.callTool({ name: "notes_score", arguments: {} });
       expect(s.isError).toBeFalsy();
+      // SDK clients validate isError results too: every error shape a tool can return must pass its schema,
+      // including x402's payment-required object, or SDK clients reject the 402 and can't pay.
+      const { AjvJsonSchemaValidator } = await import("@modelcontextprotocol/sdk/validation/ajv");
+      const ajv = new AjvJsonSchemaValidator();
+      const ok = (tool: string, data: unknown) =>
+        ajv.getValidator(tools.find((x) => x.name === tool)!.outputSchema as never)(data).valid;
+      const fail = { ok: false, code: "store_unavailable", hint: "Try again." };
+      expect(ok("notes_unlock", fail)).toBe(true);
+      expect(ok("notes_unlock", { x402Version: 2, error: "Payment required", resource: { url: "mcp://tool/notes_unlock" }, accepts: [{ scheme: "exact" }] })).toBe(true);
+      expect(ok("notes_score", fail)).toBe(true);
+      expect(ok("notes_file", { ok: false, code: "rejected_by_privacy_gate", problems: [{ field: "what", rule: "email", hint: "x" }], hint: "Fix." })).toBe(true);
+      const unpaid = await client.callTool({ name: "notes_unlock", arguments: { note_id: "x" } });
+      expect(unpaid.isError).toBe(true);
     } finally {
       await client.close();
     }

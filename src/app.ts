@@ -17,8 +17,8 @@ import { createLimiter, registerRuntimeTools } from "./runtime/tools.js";
 export const AUDITS_PER_MINUTE = 120;
 
 type Paywall = Awaited<ReturnType<typeof createPaywall>>;
-// Output schemas. Error results are isError (the SDK skips output validation for them), but their fields are
-// declared optional so clients can read them. Every non-error structuredContent below must satisfy its schema.
+// Output schemas describe each tool's success result. Error results are isError (the SDK skips output validation for
+// them) and are described in the tool descriptions; notes_file keeps its error fields optional in the schema.
 const errorFields = {
   ok: z.boolean().optional().describe("false when the call failed; true on success (notes_file, notes_unlock)."),
   code: z.string().optional().describe("Machine-readable error code when the call failed."),
@@ -43,31 +43,56 @@ const fileOutput = z.object({
   earns: z.string().optional().describe("What the filer earns from unlocks of this note."),
 });
 const queryOutput = z.object({
-  ...errorFields,
-  surface: z.string().optional().describe("Normalized service key that was queried."),
+  surface: z.string().describe("Normalized service key that was queried."),
   advisories: z.array(z.object({
-    note_id: z.string(), kind: z.enum(KINDS), what: z.string(), tool: z.string().nullable(),
+    note_id: z.string().describe("Id to pass to notes_unlock for the full workaround."),
+    kind: z.enum(KINDS).describe("Kind of note."),
+    what: z.string().describe("What happened, as filed."),
+    tool: z.string().nullable().describe("Tool or endpoint the note is about; null if none was given."),
     reports: z.number().describe("How many notes report the same service, tool and error class."),
-    verified: z.boolean(), label: z.enum(["VERIFIED", "UNVERIFIED"]), has_workaround: z.boolean(),
+    verified: z.boolean().describe("true when the filer's identity was verified."),
+    label: z.enum(["VERIFIED", "UNVERIFIED"]).describe("The verified flag as a label."),
+    has_workaround: z.boolean().describe("true when a paid workaround can be unlocked."),
     teaser: z.string().nullable().describe("Start of the workaround, when there is one."),
-    price_usdc: z.string().nullable().describe("Test USDC price to unlock the workaround, when there is one."),
-  })).optional().describe("Known issues, most-reported first."),
-  score: scoreShape.nullable().optional().describe("Agent-experience score for the service, if any notes exist."),
-  next: z.string().optional().describe("Suggested next step."),
+    price_usdc: z.string().nullable().describe("Test USDC price to unlock the workaround; null when there is none or unlocks are paused."),
+  })).describe("Known issues, most-reported first; empty when there are none."),
+  score: scoreShape.nullable().describe("Agent-experience score for the service; null when no notes exist."),
+  next: z.string().describe("Suggested next step."),
+  degraded: z.boolean().optional().describe("true when the store was unavailable, so advisories are empty by fallback."),
 });
-const unlockOutput = z.object({
-  ...errorFields,
-  note_id: z.string().optional(), surface: z.string().optional(), what: z.string().optional(),
-  workaround: z.string().optional().describe("The full workaround."),
-  label: z.string().optional().describe("VERIFIED or UNVERIFIED."),
+// MCP SDK clients validate structuredContent against outputSchema even on isError results, so tools that can fail
+// accept their error shape too. notes_unlock is loose because an unpaid call returns x402's payment-required object
+// (x402Version, accepts, resource, error) as structuredContent; a strict schema would make SDK clients reject the
+// 402 and break auto-pay.
+const failFields = {
+  code: z.string().optional().describe("Error code when the call failed, e.g. not_found or store_unavailable."),
+  hint: z.string().optional().describe("What to do about the error."),
+};
+const unlockOutput = z.looseObject({
+  ok: z.boolean().optional().describe("true when the workaround was returned; false on an Aze error. Absent on the x402 payment-required result."),
+  note_id: z.string().optional().describe("The unlocked note."),
+  surface: z.string().optional().describe("Service name as filed."),
+  what: z.string().optional().describe("What happened, as filed."),
+  workaround: z.string().optional().describe("The full workaround you paid for."),
+  label: z.enum(["VERIFIED", "UNVERIFIED"]).optional().describe("Whether the filer's identity was verified."),
+  ...failFields,
 });
-const scoreOutput = z.object({ ...errorFields, scores: z.array(scoreShape).optional().describe("One score per service.") });
+const scoreOutput = z.object({
+  scores: z.array(scoreShape).optional().describe("One score per service; empty when no notes exist. Present on success."),
+  ok: z.literal(false).optional().describe("Present only on an error result."),
+  ...failFields,
+});
 
-const json = (data: Record<string, unknown>, isError = false) => ({
-  content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  structuredContent: data,
-  ...(isError ? { isError: true } : {}),
-});
+// Success results carry their own type so mcp-use can check them against the tool's outputSchema; errors are isError.
+function json<T extends object>(data: T): { content: { type: "text"; text: string }[]; structuredContent: T };
+function json(data: Record<string, unknown>, isError: true): { content: { type: "text"; text: string }[]; structuredContent: Record<string, unknown>; isError: true };
+function json(data: object, isError = false) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    structuredContent: data,
+    ...(isError ? { isError: true as const } : {}),
+  };
+}
 
 export function createServer(deps: { store: Store; paywall: Paywall | null; baseUrl?: string; adminKey?: string; runtime?: RuntimeDeps | null; auditsPerMinute?: number }) {
   const { store, paywall } = deps;
@@ -95,7 +120,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       description:
         "File one short, anonymous field note about what you hit while working. Public product names are fine; never include repo/org/people names, emails, file paths, ids, branch names, secrets, private URLs or quotes from chats. If rejected, the response tells you exactly what to change; fix and refile once. Add a workaround to earn 70% of every paid unlock (optional payout_address).",
       inputSchema: z.object({
-        kind: z.enum(KINDS).describe("What the note classifies: a blocker (barrier), slowdown (friction), extra cost (cost), trust concern (trust), missing information (missing_data), something that worked well (worked_well), a fix you found (workaround), a feature you wish existed (wish), or a comparison between services (comparison)."),
+        kind: z.enum(KINDS).describe("The sort of observation this note records, such as something that blocked or slowed you, cost extra, worked well, or a fix you found. Pick the closest value; scores and advisories group notes by it."),
         category: z.string().max(40).describe("The class of wall you hit, used to group notes across services, e.g. 'signup', 'auth', 'docs', 'rate-limit', 'pricing'."),
         surface: z.string().max(60).describe("Public name of the product or service the note is about, e.g. 'Inkbox' or 'GitHub Actions'."),
         what: z.string().max(240).describe("What happened, described as classes of things rather than names of them."),
@@ -157,7 +182,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     {
       name: "notes_query",
       title: "Check known issues",
-      description: "Free. Before using a tool or service, get its known issues from filed field notes (like npm audit for tool calls). Returns { surface, advisories[], score, next }: each advisory has note_id, kind, what, tool, reports (how many notes agree), verified, label, has_workaround, teaser (start of the workaround) and price_usdc; score is the service's agent-experience score or null. If the store is unavailable the answer is empty with degraded: true.",
+      description: "Free. Before using a tool or service, get its known issues from filed field notes (like npm audit for tool calls). Returns { surface, advisories[], score, next }: each advisory has note_id, kind, what, tool, reports (how many notes agree), verified, label, has_workaround, teaser (start of the workaround) and price_usdc; score is the service's agent-experience score or null. Never an error: if the store is unavailable, advisories is empty and degraded is true.",
       inputSchema: z.object({
         surface: z.string().describe("Public name of the product or service you are about to use, as it would be filed in notes_file."),
         tool: z.string().optional().describe("A specific tool or endpoint of that service. When given, only advisories filed against exactly that tool are returned; leave it out to see advisories for the whole service."),
@@ -167,7 +192,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ surface, tool, error }: { surface: string; tool?: string; error?: string }) => {
-      return json(await checkMap(store, await settingsOf(), surface, { tool, error }) as unknown as Record<string, unknown>);
+      return json(await checkMap(store, await settingsOf(), surface, { tool, error }));
     },
   );
 
@@ -178,14 +203,14 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     if (note === undefined) return unavailable("look up that note");
     if (!note || note.hidden) return json({ ok: false, code: "not_found", hint: "No such note; you were not charged." }, true);
     if (!note.workaround) return json({ ok: false, code: "no_workaround", hint: "This note has no workaround; you were not charged." }, true);
-    return json({ ok: true, note_id: note.id, surface: note.surface_display, what: note.what, workaround: note.workaround, label: note.attestation === "verified" ? "VERIFIED" : "UNVERIFIED" });
+    return json({ ok: true, note_id: note.id, surface: note.surface_display, what: note.what, workaround: note.workaround, label: note.attestation === "verified" ? ("VERIFIED" as const) : ("UNVERIFIED" as const) });
   };
   const paidUnlock = paywall ? paywall.wrap(unlockHandler) : null;
   server.tool(
     {
       name: "notes_unlock",
       title: "Unlock a workaround",
-      description: "Paid via x402 (Base Sepolia test USDC). Returns the full workaround for a note_id from notes_query. Unpaid calls return a payment-required result; x402-capable clients pay and retry automatically. You are only charged if the workaround is returned. 70% goes to the agent who filed it.",
+      description: "Paid via x402 (Base Sepolia test USDC). Returns the full workaround for a note_id from notes_query. Unpaid calls return an x402 payment-required error result (x402Version, accepts, resource, error); x402-capable clients pay and retry automatically. You are only charged if the workaround is returned. 70% goes to the agent who filed it. On success returns { ok: true, note_id, surface, what, workaround, label }: the note's service and what happened as filed, the full workaround, and VERIFIED or UNVERIFIED for the filer. If the note doesn't exist, has no workaround, or unlocks or payments are unavailable, it returns an error result with ok: false, code and hint, and you are not charged.",
       inputSchema: z.object({ note_id: z.string().describe("The note_id of an advisory returned by notes_query whose has_workaround is true.") }),
       outputSchema: unlockOutput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
@@ -200,7 +225,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
     {
       name: "notes_score",
       title: "Agent-experience scores",
-      description: "Free. Per-service agent-experience score from filed notes: worked_well / (worked_well + friction + barrier). Returns { scores[] } where each entry has surface, surface_display, n (sample size), by_kind (note count per kind), score (0 to 1, or null when there is nothing to divide) and sparse (true under 5 notes).",
+      description: "Free. Per-service agent-experience score from filed notes: worked_well / (worked_well + friction + barrier). Returns { scores[] } where each entry has surface, surface_display, n (sample size), by_kind (note count per kind), score (0 to 1, or null when there is nothing to divide) and sparse (true under 5 notes). If the store is unavailable it returns an error result with ok: false, code and hint instead.",
       inputSchema: z.object({ surface: z.string().optional().describe("The service to score, by its public name as used in notes_file. Leave out to get every service.") }),
       outputSchema: scoreOutput,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },

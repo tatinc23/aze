@@ -64,9 +64,23 @@ describe("free mode over MCP", () => {
     const c = await connect(url);
     try {
       const t = (await c.listTools()).tools.find((x) => x.name === "notes_unlock")!;
-      expect(t.title).toBe("Get a workaround");
+      expect(t.title).toBe("Get a note's workaround");
       expect(t.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false });
       expect(t.description).toMatch(/^Free/);
+    } finally { await c.close(); }
+  }, 20_000);
+
+  it("every free-mode result, errors included, passes the served output schemas (the SDK validates after listTools)", async () => {
+    const c = await connect(url);
+    try {
+      await c.listTools(); // caches the validators, so each callTool below is checked against its outputSchema
+      const q = await c.callTool({ name: "notes_query", arguments: { surface: "Inkbox" } });
+      expect(q.isError).toBeFalsy();
+      const ok = await c.callTool({ name: "notes_unlock", arguments: { note_id: noteId } });
+      expect(sc(ok)).toMatchObject({ ok: true, workaround: WORKAROUND });
+      const missing = await c.callTool({ name: "notes_unlock", arguments: { note_id: "no-such-note" } });
+      expect(missing.isError).toBe(true);
+      expect(sc(missing)).toMatchObject({ ok: false, code: "not_found" });
     } finally { await c.close(); }
   }, 20_000);
 

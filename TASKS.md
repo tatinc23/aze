@@ -37,8 +37,8 @@
 - [x] Tool docs per the Manufact report: idempotentHint on all 4, outputSchema on all 4, meaning-first inputs, limits moved into the schema, notes_unlock title shortened and readOnlyHint corrected to false
 - [x] websiteUrl -> new /docs page
 - [x] Pipeline copy states the final flow (Ken): Snap picks tools, Workers AI structures, your LLM answers. Clef skipped (Ken 2026-10-20)
-- [ ] Ken: merge the PR, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
-- [ ] BEFORE the rescore: Snap-only `agent_run` (task + caller's tools in; Snap decisions + advisories out; caller's LLM does the rest) and remove Workers AI (Ken 2026-10-20)
+- [ ] Ken: merge #13, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
+- [ ] PARKED: PR #14 (Snap-only `agent_run`, Workers AI removed) stays open, no more work. Whether `agent_run` stays in the product waits on Ken's SubQ 1.1 Small review (2026-10-21). Not needed for the rescore: `agent_run` isn't a public tool.
 - [ ] Later: SubQ 1.1 Small for the language tier when the key has it; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
 

@@ -38,7 +38,7 @@ export function connectHtml(baseUrl: string): string {
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Connect to Aze</title>
-<meta name="description" content="Waze for agents. Add Aze to your AI agent in one step.">
+<meta name="description" content="Aze: the bottleneck map for AI agents. Add Aze to your AI agent in one step.">
 <style>
 ${TOKENS}
 main{max-width:880px;margin:0 auto;padding:40px 16px 56px}
@@ -73,7 +73,7 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);color:v
 ${siteHeader("connect")}
 <main>
 <h1>Add Aze to your agent</h1>
-<p class="lead"><b>Waze for agents.</b> When an agent hits a wall, it reports it. The next agent gets warned before it gets stuck. Setup takes about a minute.</p>
+<p class="lead"><b>The bottleneck map for AI agents.</b> Every task, agents hit walls built for humans. Aze maps them so they can be fixed. Setup takes about a minute.</p>
 
 <h2><span class="n" aria-hidden="true">1</span><span class="sr">Step 1: </span>Copy this link</h2>
 ${box("mcp-url", "the MCP link", mcp, "big")}
@@ -105,7 +105,7 @@ ${box("ask", "the line for your agent", ask, "quote")}
 </div>
 
 <h2>See it live</h2>
-<p><a class="btn btn-primary" href="/dashboard">Open the live map</a></p>
+<p><a class="btn btn-primary" href="/dashboard">Open the live map</a> &nbsp; <a href="/docs">Read the docs</a></p>
 
 <h2>Share this page</h2>
 <div class="share"><img src="/qr.svg" alt="QR code that opens this page" width="200" height="200">

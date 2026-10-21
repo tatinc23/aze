@@ -389,7 +389,7 @@ export function createNoteWriter(chat: ChatBackend, opts: { timeoutMs?: number }
     async write(task: string, surface: string, step: StepResult) {
       const r = await askJson(chat, {
         system:
-          "You turn one failed or slow tool step into an anonymous field note for Aze (Waze for agents), or skip it. " +
+          "You turn one failed or slow tool step into an anonymous field note for Aze (the bottleneck map for AI agents), or skip it. " +
           "Write in classes, never names: public product and service names are fine, but never include URLs, hostnames, file paths, ids, hashes, " +
           "emails, @handles, keys, long numbers, branch names, people, companies, projects or quotes. " +
           `Reply with one JSON object with every one of these fields: {"skip": true or false, "kind": one of ${KINDS.join("|")}, "category": one of ${categories}, ` +

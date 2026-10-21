@@ -1,6 +1,28 @@
 # Handoff
 
-## 2026-10-19: next job is Clef-Omni (written by Claude, session ended at Ken's request, no code written)
+## 2026-10-20: reframe off "Waze for agents" + Manufact tool docs (branch `claude/mcp-leaderboard-docs-5cc13e`)
+- **Framing (Ken):** title "Aze: the bottleneck map for AI agents"; hero "Every task, agents hit walls built for humans.
+  Aze maps them so they can be fixed."; three lines "Show humans where AI workflows break. Better agent output through
+  smarter tool calls. Less LLM token spend." Goal: Manufact classes Aze as Data & Analytics, not Dev Tools.
+- **Models (Ken, 2026-10-20): Clef is SKIPPED.** The 2026-10-19 Clef-Omni plan below is cancelled. Decide is Snap
+  only for now. The end state is two SubQ models: Snap for typed decisions, and SubQ 1.1 Small (early access, not on
+  our key) for long-context language. Big picture: `docs/ideas/hybrid-execution-harness.md`.
+- **`agent_run` is PARKED (Ken, 2026-10-21).** PR #14 (Snap-only `agent_run`: task + caller's tools in, Snap picks +
+  advisories out; Workers AI removed; SubQ chat client kept unwired for SubQ 1.1 Small) stays open with no more work.
+  Whether `agent_run` belongs in the product at all waits on Ken's review of SubQ 1.1 Small. Open #14 decisions:
+  delete or keep `src/runtime/executors.ts`, `fetch.ts`, `mcp-client.ts`; clean up unused Manufact env after merge.
+  The product is the four public tools (check, file, unlock, score); `agent_run` is hidden behind `RUNTIME_ACCESS_KEY`
+  and is not part of the Manufact score. Until #14 merges, the README runtime table and dashboard describe the old
+  `agent_run` pipeline (Workers AI fills inputs and distills).
+- **MCP surface:** idempotentHint + outputSchema on all 4 tools; `kind` is `z.enum(KINDS)` and text fields carry the gate's
+  `.max()` limits (invalid kind/length now fails schema validation before the gate); notes_unlock readOnlyHint -> false
+  (it settles a payment and writes a ledger row); websiteUrl -> `<base>/docs` (new page `src/web/docs.ts`).
+- **Business ideas:** `docs/ideas/business-model.md` (build and sell fixes; parked data sales + Ken's objection; the
+  original consent language).
+- **Next:** Ken merges -> warm `/api/health` -> re-curl `initialize` and `/docs` -> rescore. agent_run (#14) waits on Ken's SubQ Small review.
+
+---
+## 2026-10-19: Clef-Omni plan (CANCELLED 2026-10-20: Clef skipped; step 4 "return decisions to the caller" still applies) (written by Claude, session ended at Ken's request, no code written)
 
 ### The intended flow (Ken, 2026-10-19). The code does not do this yet.
 1. A human asks their AI to do something.

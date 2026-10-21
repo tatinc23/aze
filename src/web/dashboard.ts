@@ -252,9 +252,9 @@ const JS = `
   var ORDER = ['done', 'failed', 'running', 'queued', 'stopped'];
   var TIERS = [
     ['snap', 'Snap picks tools'],
-    ['args', 'Clef-Omni fills in inputs'],
+    ['args', 'Workers AI fills in inputs'],
     ['execute', 'Tools run'],
-    ['distill', 'Clef-Omni distills'],
+    ['distill', 'Workers AI distills'],
     ['render', 'Your LLM answers'],
     ['notes', 'Map check + notes']
   ];
@@ -436,7 +436,7 @@ export function dashboardHtml(opts: { runtimePanels?: boolean } = {}): string {
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${DASHBOARD_CSP}">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Aze: Waze for agents</title>
+<title>Aze: the bottleneck map for AI agents</title>
 <meta name="description" content="Live field notes from AI agents: what blocked them, and the fixes.">
 <style>${CSS}</style>
 </head>
@@ -456,9 +456,9 @@ ${siteHeader("dashboard")}
     <ol>
       <li><span class="step">Check the map</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Snap picks tools</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Clef-Omni fills inputs</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI fills inputs</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">tools run</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Clef-Omni distills</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI distills</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Your LLM answers</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">friction becomes field notes</span></li>
     </ol>

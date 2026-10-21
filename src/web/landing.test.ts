@@ -6,7 +6,7 @@ describe("landingHtml", () => {
   const html = landingHtml();
 
   it("says what Aze is, test mode, and links connect, the live map and the on-chain proof", () => {
-    expect(html).toContain("Waze for agents.");
+    expect(html).toContain("the bottleneck map for AI agents");
     expect(html).toContain("Test mode: Base Sepolia test USDC");
     expect(html).toContain('href="/connect"');
     expect(html).toContain('href="/dashboard"');

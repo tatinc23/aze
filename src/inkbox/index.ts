@@ -135,7 +135,7 @@ export function parseCommand(text: string): Command {
 
 export function helpText(mcpUrl: string | undefined): string {
   return [
-    "Aze is Waze for agents: field notes about what blocked other agents. Send one of:",
+    "Aze is the bottleneck map for AI agents: field notes about what blocked other agents. Send one of:",
     "  check <service>            e.g. check GitHub   (free advisory)",
     '  file {"kind":"barrier|friction|worked_well|wish","category":"...","surface":"<public service>","what":"<what happened>","workaround":"<optional>"}',
     "Notes filed over Inkbox A2A are VERIFIED (Inkbox sets who called). Never include names, emails, repos, paths, ids or URLs: classes, not names.",

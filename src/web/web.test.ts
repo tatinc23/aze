@@ -51,7 +51,7 @@ describe("dashboardHtml", () => {
     const text = how.replace(/<[^>]+>/g, " ").replace(/&rarr;/g, "→").replace(/\s+/g, " ").trim();
     // The pipeline's real order (pipeline.ts): notes_query first, then the tiers. No identity step is claimed: every
     // swarm agent runs "unverified".
-    expect(text).toBe("How a run works Check the map → Snap picks tools → Workers AI fills inputs → tools run → Workers AI distills → Workers AI answers → friction becomes field notes");
+    expect(text).toBe("How a run works Check the map → Snap picks tools → Workers AI fills inputs → tools run → Workers AI distills → Your LLM answers → friction becomes field notes");
     expect(how).toContain('aria-hidden="true">&rarr;'); // arrows are decoration; the list order carries meaning
   });
 
@@ -257,7 +257,7 @@ describe("dashboard economics", () => {
     expect(row("Snap picks tools")).toBe('<td class="n">420 ms</td><td class="n">$0.000050</td>');
     expect(row("Workers AI fills in inputs")).toBe('<td class="n">1.8 s</td><td class="n unk">price unknown</td>');
     expect(row("Tools run")).toContain("price unknown");
-    expect(row("Workers AI answers")).toBe('<td class="n">6.1 s</td><td class="n">$0.012</td>');
+    expect(row("Your LLM answers")).toBe('<td class="n">6.1 s</td><td class="n">$0.012</td>');
     expect(row("Map check + notes")).toContain("300 ms");
     expect(h).toContain('<div class="label">Runs done</div><div class="v">97</div>');
     expect(h).toContain('<div class="label">Failed</div><div class="v">3</div>');

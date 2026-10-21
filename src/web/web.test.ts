@@ -51,7 +51,7 @@ describe("dashboardHtml", () => {
     const text = how.replace(/<[^>]+>/g, " ").replace(/&rarr;/g, "→").replace(/\s+/g, " ").trim();
     // The pipeline's real order (pipeline.ts): notes_query first, then the tiers. No identity step is claimed: every
     // swarm agent runs "unverified".
-    expect(text).toBe("How a run works Check the map → Snap picks tools → Workers AI fills inputs → tools run → Workers AI distills → Your LLM answers → friction becomes field notes");
+    expect(text).toBe("How a run works Check the map → Snap picks tools → your LLM runs them and answers → friction becomes field notes");
     expect(how).toContain('aria-hidden="true">&rarr;'); // arrows are decoration; the list order carries meaning
   });
 
@@ -250,20 +250,18 @@ describe("dashboard economics", () => {
     compression_ratio: 0.12,
   };
 
-  it("shows avg time per tier, USD where known, 'price unknown' where not, and compression", async () => {
+  it("shows avg time for Aze's own steps, USD where known, 'price unknown' where not", async () => {
     const { els } = await renderWith({ ...baseStats, recent: [] }, [], { runStats: stats });
     const h = els.eco.innerHTML;
     const row = (label: string) => h.match(new RegExp(`<tr><th scope="row">${label.replace(/[+.]/g, "\\$&")}</th>(.*?)</tr>`))?.[1] ?? "";
     expect(row("Snap picks tools")).toBe('<td class="n">420 ms</td><td class="n">$0.000050</td>');
-    expect(row("Workers AI fills in inputs")).toBe('<td class="n">1.8 s</td><td class="n unk">price unknown</td>');
-    expect(row("Tools run")).toContain("price unknown");
-    expect(row("Your LLM answers")).toBe('<td class="n">6.1 s</td><td class="n">$0.012</td>');
-    expect(row("Map check + notes")).toContain("300 ms");
+    expect(row("Map check + notes")).toBe('<td class="n">300 ms</td><td class="n unk">price unknown</td>');
+    expect(h).not.toMatch(/Workers AI|Tools run|answers|distill/i); // the caller's LLM does those steps: no rows
     expect(h).toContain('<div class="label">Runs done</div><div class="v">97</div>');
     expect(h).toContain('<div class="label">Failed</div><div class="v">3</div>');
     expect(h).toContain('<div class="label">Notes filed</div><div class="v">12</div>');
-    expect(h).toContain('<div class="v">12%</div><div class="sub">8.3x smaller</div>');
-    expect(h).toContain("Known cost so far: <b>$0.012</b> over 100 runs. Only calls with a known price count, so steps marked \"price unknown\" are left out: we do not guess prices.");
+    expect(h).not.toContain("Text kept");
+    expect(h).toContain("Known cost so far: <b>$0.000050</b> over 100 runs. Only calls with a known price count, so steps marked \"price unknown\" are left out: we do not guess prices.");
     expect(h).toContain('<th scope="col" class="n">Known cost, all runs</th>'); // RunStats sums known costs only
   });
 
@@ -271,9 +269,8 @@ describe("dashboard economics", () => {
     const { els } = await renderWith({ ...baseStats, recent: [] }, [],
       { runStats: { ...stats, avg_ms_by_tier: { snap: 400 }, cost_micro_usd_by_tier: {}, compression_ratio: null, running: 2 } });
     const h = els.eco.innerHTML;
-    expect(h).toContain('<tr><th scope="row">Tools run</th><td class="n nil">none yet</td><td class="n nil">none yet</td></tr>');
+    expect(h).toContain('<tr><th scope="row">Map check + notes</th><td class="n nil">none yet</td><td class="n nil">none yet</td></tr>');
     expect(h).toContain("No step has a known price yet, so no cost is shown. We do not guess prices.");
-    expect(h).toContain('<div class="label">Text kept</div><div class="v">none yet</div>');
     expect(h).toContain("2 not finished"); // a run cut off by a restart is never "still running"
     expect(h).toContain("Average time of successful calls"); // the table caption says which calls the average covers
     expect(h).not.toMatch(/\$\d/);

@@ -102,7 +102,7 @@ body.lean .how,body.lean .mid{display:none}
 .legend b{color:var(--ink)}
 .note{margin:8px 0 0;font-size:13px;color:var(--muted)}
 /* Economics */
-.ecosum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:0;list-style:none}
+.ecosum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:0;list-style:none}
 .ecosum li{background:var(--page);border:1px solid var(--border);border-radius:10px;padding:6px 10px;min-width:0}
 .ecosum .label{font-size:13px;color:var(--ink-2);font-weight:550}
 .ecosum .v{font-size:clamp(20px,1.6vw,28px);font-weight:650;line-height:1.15;overflow-wrap:anywhere}
@@ -250,13 +250,10 @@ const JS = `
     unknown: ['Unknown', '?']
   };
   var ORDER = ['done', 'failed', 'running', 'queued', 'stopped'];
+  // Aze's own steps. Filling inputs, running tools and answering happen in the caller's LLM, so they get no row.
   var TIERS = [
-    ['snap', 'Snap picks tools'],
-    ['args', 'Workers AI fills in inputs'],
-    ['execute', 'Tools run'],
-    ['distill', 'Workers AI distills'],
-    ['render', 'Your LLM answers'],
-    ['notes', 'Map check + notes']
+    ['notes', 'Map check + notes'],
+    ['snap', 'Snap picks tools']
   ];
   function stOf(s){ return typeof s === 'string' && s !== 'unknown' && has(ST, s) ? s : 'unknown'; }
   function dur(v){
@@ -337,15 +334,11 @@ const JS = `
       return '<tr><th scope="row">' + esc(t[1]) + '</th>' +
         (timed ? '<td class="n">' + esc(dur(avg[k])) + '</td>' : '<td class="n nil">none yet</td>') + c + '</tr>';
     }).join('');
-    var r = st.compression_ratio, ratio = r === null || r === undefined || r === '' ? NaN : Number(r);
-    var kept = isFinite(ratio) && ratio >= 0 ? (ratio > 0 && ratio < 0.01 ? 'under 1%' : Math.round(ratio * 100) + '%') : 'none yet';
-    var keptSub = isFinite(ratio) && ratio > 0 ? (ratio < 1 ? (1 / ratio).toFixed(1) + 'x smaller' : 'not smaller') : 'of the raw tool output';
     var tiles = [
       ['Runs done', num(st.done), ''],
       // "not finished", not "still running": a run cut off by a restart stays unfinished in the log forever.
       ['Failed', num(st.failed), Number(st.running) > 0 ? num(st.running) + ' not finished' : ''],
-      ['Notes filed', num(st.notes_filed), 'from friction'],
-      ['Text kept', kept, keptSub]
+      ['Notes filed', num(st.notes_filed), 'from friction']
     ];
     box.innerHTML = '<ul class="ecosum">' + tiles.map(function(x){
         return '<li><div class="label">' + esc(x[0]) + '</div><div class="v">' + esc(x[1]) + '</div>' + (x[2] ? '<div class="sub">' + esc(x[2]) + '</div>' : '') + '</li>';
@@ -456,10 +449,7 @@ ${siteHeader("dashboard")}
     <ol>
       <li><span class="step">Check the map</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Snap picks tools</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI fills inputs</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">tools run</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Workers AI distills</span></li>
-      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">Your LLM answers</span></li>
+      <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">your LLM runs them and answers</span></li>
       <li><span class="arr" aria-hidden="true">&rarr;</span><span class="step">friction becomes field notes</span></li>
     </ol>
   </section>

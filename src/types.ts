@@ -133,7 +133,9 @@ export interface Advisory {
   label: "VERIFIED" | "UNVERIFIED";
   has_workaround: boolean;
   teaser: string | null;
-  price_usdc: string | null; // e.g. "0.05" when has_workaround
+  price_usdc: string | null; // e.g. "0.05" when has_workaround; null in free mode
+  /** Free mode only (PAID_UNLOCKS not on): the full workaround. Absent in paid mode, where it is released only by notes_unlock. */
+  workaround?: string | null;
 }
 export interface Envelope {
   surface: string;

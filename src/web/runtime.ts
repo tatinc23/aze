@@ -78,7 +78,7 @@ export function redactPublic<T>(v: T): T {
 // Provider errors carry a raw response excerpt (SubQ: "http 422 validation_error: {...}", "returned non-JSON: ...").
 // An error body can echo the request (task text, tool descriptions; in pre-2026-10-20 rows, fetched page text), so on
 // public endpoints the excerpt is cut. The pipeline's own wording around it is kept.
-const EXCERPT_RE = /\b(http \d{3}(?: [a-z_]+)?|returned non-JSON|gave no valid JSON after (?:a retry|one try \(no time left to retry\))): /i;
+const EXCERPT_RE = /\b(http \d{3}(?: [a-z_]+)?|returned non-JSON|snap answered none of \d+ questions|gave no valid JSON after (?:a retry|one try \(no time left to retry\))): /i;
 const PIPELINE_TAIL_RE = /\)(?:: (?:nothing ranked|raw truncated to 4 KB|facts returned|fallback(?: web_fetch(?: \(URL in task\))?|, nothing chosen)))?$/;
 /** An operational string (timing detail, run or agent error) as shown publicly: excerpt cut, addresses and
  * secret-shaped tokens masked, one line, length-capped. Non-strings pass through. */

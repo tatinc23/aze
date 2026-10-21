@@ -613,6 +613,8 @@ describe("public run records: only the rendered answer and timings", () => {
       [`renderer failed (http 500: {"errors":[{"message":"${PAGE}"}]}): facts returned`, "renderer failed (http 500: [response excerpt hidden]): facts returned"],
       [`router failed (subq /systemone returned non-JSON: <html>${PAGE}): fallback web_fetch`, "router failed (subq /systemone returned non-JSON: [response excerpt hidden]): fallback web_fetch"],
       [`router failed (subq /systemone http 422 validation_error: {"input":"${PAGE}"}): nothing ranked`, "router failed (subq /systemone http 422 validation_error: [response excerpt hidden]): nothing ranked"],
+      [`router failed (snap route failed for 1/1 calls: snap answered none of 3 questions: {"echo":"${PAGE}"}): nothing ranked`, "router failed (snap route failed for 1/1 calls: snap answered none of 3 questions: [response excerpt hidden]): nothing ranked"],
+      [`SubQ Snap failed: snap route failed for 1/1 calls: snap answered none of 3 questions: {"echo":"${PAGE}"}`, "SubQ Snap failed: snap route failed for 1/1 calls: snap answered none of 3 questions: [response excerpt hidden]"],
       [`web_fetch: note writer failed (subq /chat/completions http 400: ${PAGE})`, "web_fetch: note writer failed (subq /chat/completions http 400: [response excerpt hidden])"],
       [`args: arg filler failed (subq subq-preview gave no valid JSON after a retry: ${PAGE})`, "args: arg filler failed (subq subq-preview gave no valid JSON after a retry: [response excerpt hidden])"],
       [`pipeline error: http 502: ${PAGE}`, "pipeline error: http 502: [response excerpt hidden]"],

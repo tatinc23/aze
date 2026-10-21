@@ -37,6 +37,7 @@ vitest. Shared contracts: `src/types.ts`.
 - Spike/local payments: `node spike/fake-facilitator.mjs` + `X402_FACILITATOR_URL=http://localhost:4999`
 
 ## Gotchas (cost real time)
+- `PAID_UNLOCKS` (default off = free mode): workarounds ride on `notes_query` and `notes_unlock` is free with no paywall. `PAID_UNLOCKS=on` restores x402 paid unlocks (needs `PLATFORM_ADDRESS`/`STRIPE_DEPOSIT_ADDRESS`). `createServer` takes `freeUnlocks` (default false).
 - mcp-use tool handlers get `ctx.params._meta`, not `extra._meta`. Wrap paid handlers as
   `paid(handler)(args, { _meta: ctx?.params?._meta })` or payment is never seen (proved in `spike/`).
 - `@x402/mcp` does NOT settle when the handler returns `isError` or throws; write ledger rows in `onAfterSettlement`.

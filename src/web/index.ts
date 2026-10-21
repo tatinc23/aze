@@ -8,8 +8,9 @@ import type { RuntimeDeps } from "../runtime/types.js";
 import { registerDiag } from "./diag.js";
 import { isAdmin, registerRuntimeWeb } from "./runtime.js";
 
-export function registerWeb(app: any, deps: { store: Store; adminKey?: string; runtime?: RuntimeDeps | null; baseUrl?: string }) {
+export function registerWeb(app: any, deps: { store: Store; adminKey?: string; runtime?: RuntimeDeps | null; baseUrl?: string; free?: boolean }) {
   const { store, adminKey } = deps;
+  const free = deps.free === true;
   if (deps.runtime) {
     registerDiag(app, { adminKey, diags: deps.runtime.diags });
     registerRuntimeWeb(app, { store, runtime: deps.runtime, adminKey, baseUrl: deps.baseUrl });
@@ -29,11 +30,11 @@ export function registerWeb(app: any, deps: { store: Store; adminKey?: string; r
   app.get("/dashboard", (c: any) => c.html(dashboardHtml({ runtimePanels })));
   // Public base URL: MCP_URL (minus /mcp) if set, else the request origin.
   const base = (c: any) => resolveBaseUrl(process.env.MCP_URL, c.req.url, c.req.header("x-forwarded-proto"));
-  app.get("/connect", (c: any) => c.html(connectHtml(base(c))));
-  app.get("/docs", (c: any) => c.html(docsHtml(base(c))));
+  app.get("/connect", (c: any) => c.html(connectHtml(base(c), { free })));
+  app.get("/docs", (c: any) => c.html(docsHtml(base(c), { free })));
   app.get("/qr.svg", async (c: any) =>
     c.body(await qrSvg(`${base(c)}/connect`), 200, { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "private, max-age=300" }));
-  app.get("/", (c: any) => c.html(landingHtml()));
+  app.get("/", (c: any) => c.html(landingHtml({ free })));
   app.post("/admin/switch", async (c: any) => {
     if (!isAdmin(c.req.header("x-admin-key"), adminKey)) return c.json({ ok: false, code: "unauthorized" }, 401);
     const body = await c.req.json().catch(() => ({}));

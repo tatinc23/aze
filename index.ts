@@ -10,12 +10,16 @@ const env = process.env;
 const building = env.MCP_USE_PHASE === "build"; // mcp-use build imports this file; skip network side effects then
 const store = createStore(env);
 
+// Free mode is the default: workarounds are free and no paywall is created. PAID_UNLOCKS=on turns x402 paid unlocks back on.
+const freeUnlocks = env.PAID_UNLOCKS?.trim() !== "on";
 let paywall: Awaited<ReturnType<typeof createPaywall>> | null = null;
 const runtimeRef: { current: ReturnType<typeof buildRuntime> | null } = { current: null };
 // payTo: a Stripe sandbox crypto deposit address (Base Sepolia) when set, so test payments land in the Stripe sandbox
 // balance; otherwise our own platform test wallet. Test mode only.
 const payTo = env.STRIPE_DEPOSIT_ADDRESS || env.PLATFORM_ADDRESS;
-if (payTo && !building) {
+if (freeUnlocks) {
+  if (!building) console.log("unlocks: free (PAID_UNLOCKS not on)");
+} else if (payTo && !building) {
   try {
     const settings = await store.getSettings().catch(() => DEFAULT_SETTINGS);
     paywall = await createPaywall({
@@ -41,13 +45,13 @@ if (!building && store.kind === "supabase") {
 
 const runtime = buildRuntime(env, store);
 runtimeRef.current = runtime;
-const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY, runtime });
+const server = createServer({ store, paywall, freeUnlocks, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY, runtime });
 if (!building) console.log(providersLine(runtime));
 // DIAG_ON_BOOT=1: one DIAG line in the runtime logs 10 s after boot (every provider check from this machine, details
 // redacted and cut to 300 chars), so a deploy can be verified from Manufact's logs without calling /admin/diag.
 if (!building && env.DIAG_ON_BOOT === "1") scheduleBootDiag(runtime.diags, { env });
 
-if (!building && env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {
+if (!building && !freeUnlocks && env.SELFTEST_ON_BOOT === "1" && env.MCP_URL && env.BUYER_PRIVATE_KEY) {
   // Lets us prove the live loop from Manufact's runtime logs when the dev container can't reach the server.
   setTimeout(async () => {
     const { runDemo } = await import("./demo/run.js");

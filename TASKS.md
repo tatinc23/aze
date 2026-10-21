@@ -41,4 +41,4 @@
 - [ ] PARKED: PR #14 (Snap-only `agent_run`, Workers AI removed) stays open, no more work. Whether `agent_run` stays in the product waits on Ken's SubQ 1.1 Small review (2026-10-21). Not needed for the rescore: `agent_run` isn't a public tool.
 - [ ] Later: SubQ 1.1 Small for the language tier when the key has it; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
-
+- [x] Free mode (Ken 2026-10-21): workarounds free by default, `PAID_UNLOCKS=on` brings back x402; dashboard and README drop Workers AI

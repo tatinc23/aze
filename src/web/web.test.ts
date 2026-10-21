@@ -2,12 +2,11 @@ import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { DASHBOARD_CSP, dashboardHtml } from "./dashboard.js";
-import { isAdmin, publicText, registerRuntimeWeb, renderedAnswer } from "./runtime.js";
-import { NOTHING_TO_DO } from "../runtime/pipeline.js";
+import { isAdmin, LEGACY_NOTHING_TO_DO as NOTHING_TO_DO, publicText, registerRuntimeWeb, renderedAnswer } from "./runtime.js";
 import { MemoryRunStore } from "../runtime/store.js";
 import { createRunBudget, type RunBudget } from "../swarm/budget.js";
 import { MemoryStore } from "../store/memory.js";
-import type { AgentContext, Asset, Executor, Pipeline, RunRecord, RunStats, RunStore, RuntimeDeps } from "../runtime/types.js";
+import type { AgentContext, Pipeline, Router, RunRecord, RunStats, RunStore, RuntimeDeps } from "../runtime/types.js";
 import { SwarmRunner } from "../swarm/runner.js";
 import type { LoadedTasks } from "../swarm/tasks.js";
 import { createWallets } from "../swarm/wallets.js";
@@ -49,9 +48,9 @@ describe("dashboardHtml", () => {
   it("explains how a run works, in order", () => {
     const how = html.match(/<section class="how"[\s\S]*?<\/section>/)?.[0] ?? "";
     const text = how.replace(/<[^>]+>/g, " ").replace(/&rarr;/g, "→").replace(/\s+/g, " ").trim();
-    // The pipeline's real order (pipeline.ts): notes_query first, then the tiers. No identity step is claimed: every
-    // swarm agent runs "unverified".
-    expect(text).toBe("How a run works Check the map → Snap picks tools → Workers AI fills inputs → tools run → Workers AI distills → Your LLM answers → friction becomes field notes");
+    // The decide-only flow (pipeline.ts): the map check, then Snap; the caller's LLM does the rest. No identity step is
+    // claimed: every swarm agent runs "unverified".
+    expect(text).toBe("How a run works Check the map → Snap picks tools → your LLM runs them and answers → friction becomes field notes");
     expect(how).toContain('aria-hidden="true">&rarr;'); // arrows are decoration; the list order carries meaning
   });
 
@@ -245,35 +244,33 @@ describe("dashboard agent grid", () => {
 describe("dashboard economics", () => {
   const stats: RunStats = {
     runs: 100, done: 97, failed: 3, running: 0, notes_filed: 12,
-    avg_ms_by_tier: { snap: 420, args: 1800, execute: 950, distill: 2400, render: 6100, notes: 300 },
-    cost_micro_usd_by_tier: { snap: 50, render: 12345.5 },
-    compression_ratio: 0.12,
+    avg_ms_by_tier: { snap: 420, notes: 300 },
+    cost_micro_usd_by_tier: { snap: 5000 },
+    compression_ratio: null,
   };
 
-  it("shows avg time per tier, USD where known, 'price unknown' where not, and compression", async () => {
+  it("shows Aze's two steps (avg time, USD where known) and the average Snap cost per run", async () => {
     const { els } = await renderWith({ ...baseStats, recent: [] }, [], { runStats: stats });
     const h = els.eco.innerHTML;
     const row = (label: string) => h.match(new RegExp(`<tr><th scope="row">${label.replace(/[+.]/g, "\\$&")}</th>(.*?)</tr>`))?.[1] ?? "";
-    expect(row("Snap picks tools")).toBe('<td class="n">420 ms</td><td class="n">$0.000050</td>');
-    expect(row("Workers AI fills in inputs")).toBe('<td class="n">1.8 s</td><td class="n unk">price unknown</td>');
-    expect(row("Tools run")).toContain("price unknown");
-    expect(row("Your LLM answers")).toBe('<td class="n">6.1 s</td><td class="n">$0.012</td>');
-    expect(row("Map check + notes")).toContain("300 ms");
+    expect(row("Check the map")).toBe('<td class="n">300 ms</td><td class="n">no model call</td>');
+    expect(row("Snap picks tools")).toBe('<td class="n">420 ms</td><td class="n">$0.0050</td>');
+    expect(h).not.toMatch(/Workers\sAI|distill|fills in inputs|Text kept/i);
     expect(h).toContain('<div class="label">Runs done</div><div class="v">97</div>');
     expect(h).toContain('<div class="label">Failed</div><div class="v">3</div>');
-    expect(h).toContain('<div class="label">Notes filed</div><div class="v">12</div>');
-    expect(h).toContain('<div class="v">12%</div><div class="sub">8.3x smaller</div>');
-    expect(h).toContain("Known cost so far: <b>$0.012</b> over 100 runs. Only calls with a known price count, so steps marked \"price unknown\" are left out: we do not guess prices.");
+    expect(h).toContain('<div class="label">Snap cost</div><div class="v">$0.000050</div><div class="sub">per run, on average</div>');
+    expect(h).toContain("Known cost so far: <b>$0.0050</b> over 100 runs. Only calls with a known price count: we do not guess prices.");
     expect(h).toContain('<th scope="col" class="n">Known cost, all runs</th>'); // RunStats sums known costs only
   });
 
   it("never invents a number: missing tiers say 'none yet' and no price means no cost", async () => {
     const { els } = await renderWith({ ...baseStats, recent: [] }, [],
-      { runStats: { ...stats, avg_ms_by_tier: { snap: 400 }, cost_micro_usd_by_tier: {}, compression_ratio: null, running: 2 } });
+      { runStats: { ...stats, avg_ms_by_tier: { snap: 400 }, cost_micro_usd_by_tier: {}, running: 2 } });
     const h = els.eco.innerHTML;
-    expect(h).toContain('<tr><th scope="row">Tools run</th><td class="n nil">none yet</td><td class="n nil">none yet</td></tr>');
+    expect(h).toContain('<tr><th scope="row">Check the map</th><td class="n nil">none yet</td><td class="n">no model call</td></tr>');
+    expect(h).toContain('<tr><th scope="row">Snap picks tools</th><td class="n">400 ms</td><td class="n unk">price unknown</td></tr>');
     expect(h).toContain("No step has a known price yet, so no cost is shown. We do not guess prices.");
-    expect(h).toContain('<div class="label">Text kept</div><div class="v">none yet</div>');
+    expect(h).toContain('<div class="label">Snap cost</div><div class="v">none yet</div>');
     expect(h).toContain("2 not finished"); // a run cut off by a restart is never "still running"
     expect(h).toContain("Average time of successful calls"); // the table caption says which calls the average covers
     expect(h).not.toMatch(/\$\d/);
@@ -294,15 +291,19 @@ const KEY = "admin-key-for-tests";
 const TASKS: LoadedTasks = {
   tasks: [{ id: "a", surface: "GitHub", task: "task A" }, { id: "b", surface: "npm", task: "task B" }], source: "builtin", rejected: 0, reason: null,
 };
-const rec = (task: string, surface: string | null, ctx: AgentContext, over: Partial<RunRecord> = {}): RunRecord => ({
+/** A run record. The defaults are a pre-2026-10-20 row (render tier, answer, byte counts) on purpose: the public
+ * endpoints still serve those rows from the log, so their redaction keeps its tests. */
+type Over = Omit<Partial<RunRecord>, "timings" | "cost_micro_usd"> & { timings?: Array<Record<string, unknown>>; cost_micro_usd?: Record<string, number | null> };
+const rec = (task: string, surface: string | null, ctx: AgentContext, over: Over = {}): RunRecord => ({
   id: `run-${ctx.agent_id}`, created_at: "2026-10-17T20:00:00.000Z", agent_id: ctx.agent_id, swarm_id: ctx.swarm_id, task, surface, status: "done",
   attestation: "unverified", assets: [{ asset_id: "web_fetch", p: 0.9 }], timings: [{ tier: "render", ms: 5, ok: true, detail: "m" }],
   raw_bytes: 100, distilled_bytes: 10, cost_micro_usd: { snap: 1, render: null }, answer: "42", notes_filed: [], error: null,
   finished_at: "2026-10-17T20:00:01.000Z", ...over,
-});
+} as unknown as RunRecord);
+const DECISION = { decided_by: "SubQ Snap", scores: [{ tool: "web_fetch", p: 0.9 }], advisories: [], next: "Aze does not run tools: call web_fetch yourself." };
 
 function makeApp(over: {
-  adminKey?: string; runs?: RunStore; gate?: boolean; result?: Partial<RunRecord>; seed?: string; storeTimeoutMs?: number;
+  adminKey?: string; runs?: RunStore; gate?: boolean; result?: Over; seed?: string; storeTimeoutMs?: number;
   budget?: RunBudget; env?: NodeJS.ProcessEnv; maxInFlight?: number; adminRunMaxInFlight?: number;
 } = {}) {
   const calls: Array<{ task: string; surface: string | null; ctx: AgentContext }> = [];
@@ -311,13 +312,11 @@ function makeApp(over: {
     async run(task, surface, ctx) {
       calls.push({ task, surface, ctx });
       if (over.gate) await new Promise<void>((r) => gates.push(r));
-      return rec(task, surface, ctx, over.result);
+      return { ...rec(task, surface, ctx, over.result), decision: DECISION };
     },
   };
   const runs = over.runs ?? new MemoryRunStore();
-  const runtime: RuntimeDeps = {
-    runs, router: null, args: null, distiller: null, noteWriter: null, renderer: null, auditor: null, executors: {}, diags: [], payments: null,
-  };
+  const runtime: RuntimeDeps = { runs, router: null, auditor: null, diags: [], payments: null };
   const app = new Hono();
   const runner = new SwarmRunner();
   const wallets = createWallets({ SWARM_SEED: over.seed ?? TEST_MNEMONIC });
@@ -429,6 +428,15 @@ describe("runtime routes", () => {
     expect(t.calls).toHaveLength(1);
   });
 
+  it("GET /api/runs masks agent_run's caller tool names; /admin/run's operator view is not affected", async () => {
+    const runs = new MemoryRunStore();
+    vi.spyOn(runs, "listRuns").mockResolvedValue([rec("t", "GitHub", ctxOf("agent_run"), { assets: [{ asset_id: "acme-internal.deploy", p: 0.8 }] })]);
+    const body = await (await makeApp({ runs }).app.request("/api/runs")).text();
+    expect(body).not.toContain("acme-internal");
+    expect(JSON.parse(body).runs[0].assets).toEqual([{ asset_id: "[caller tool]", p: 0.8 }]);
+    vi.restoreAllMocks();
+  });
+
   it("GET /api/runs clamps the limit, validates swarm_id and whitelists fields", async () => {
     const runs = new MemoryRunStore();
     const listRuns = vi.spyOn(runs, "listRuns").mockResolvedValue([
@@ -443,7 +451,9 @@ describe("runtime routes", () => {
       "agent_id", "answer", "assets", "attestation", "cost_micro_usd", "created_at", "distilled_bytes", "error", "finished_at", "id", "notes_filed",
       "raw_bytes", "status", "surface", "swarm_id", "task", "timings",
     ]);
-    expect(parsed.cost_micro_usd).toEqual({ snap: 1, render: null });
+    expect(parsed.cost_micro_usd).toEqual({ snap: 1 }); // pre-2026-10-20 tiers (render) are dropped
+    expect(parsed.assets).toEqual([{ asset_id: "web_fetch", p: 0.9 }]); // catalog ids (swarm runs) stay
+    expect(parsed).not.toHaveProperty("decision");
     await t.app.request("/api/runs");
     expect(listRuns).toHaveBeenLastCalledWith({ limit: 20 });
     await t.app.request("/api/runs?limit=5&swarm_id=sw-1");
@@ -539,7 +549,7 @@ describe("runtime routes", () => {
     expect(ran).not.toContain(addr);
     expect(ran).toContain("0x[address]");
     expect(ran).toContain(tx);
-    expect(JSON.parse(ran).cost_micro_usd).toEqual({ snap: 1, render: null });
+    expect(JSON.parse(ran).cost_micro_usd).toEqual({ snap: 1 });
     const sw = await t.req("POST", "/admin/swarm", { n: 2 });
     expect(sw.status).toBe(200);
     await t.runner.whenIdle();
@@ -602,6 +612,7 @@ describe("public run records: only the rendered answer and timings", () => {
         "distiller failed (subq /chat/completions http 422 validation_error: [response excerpt hidden]): raw truncated to 4 KB"],
       [`renderer failed (http 500: {"errors":[{"message":"${PAGE}"}]}): facts returned`, "renderer failed (http 500: [response excerpt hidden]): facts returned"],
       [`router failed (subq /systemone returned non-JSON: <html>${PAGE}): fallback web_fetch`, "router failed (subq /systemone returned non-JSON: [response excerpt hidden]): fallback web_fetch"],
+      [`router failed (subq /systemone http 422 validation_error: {"input":"${PAGE}"}): nothing ranked`, "router failed (subq /systemone http 422 validation_error: [response excerpt hidden]): nothing ranked"],
       [`web_fetch: note writer failed (subq /chat/completions http 400: ${PAGE})`, "web_fetch: note writer failed (subq /chat/completions http 400: [response excerpt hidden])"],
       [`args: arg filler failed (subq subq-preview gave no valid JSON after a retry: ${PAGE})`, "args: arg filler failed (subq subq-preview gave no valid JSON after a retry: [response excerpt hidden])"],
       [`pipeline error: http 502: ${PAGE}`, "pipeline error: http 502: [response excerpt hidden]"],
@@ -640,13 +651,9 @@ describe("public run records: only the rendered answer and timings", () => {
     vi.restoreAllMocks();
   });
 
-  it("end to end with the real pipeline: fetched page text never reaches /api/runs or /api/swarm", async () => {
-    const pageExecutor: Executor = { async execute(asset: Asset) { return { asset_id: asset.id, ok: true, output: `GET https://status.example.com 200\n${PAGE}`, ms: 3, error: null, friction: false }; } };
-    const build = (over: Partial<RuntimeDeps>) => {
-      const runtime: RuntimeDeps = {
-        runs: new MemoryRunStore(), router: null, args: null, distiller: null, noteWriter: null, renderer: null, auditor: null,
-        executors: { http_fetch: pageExecutor }, diags: [], payments: null, ...over,
-      };
+  it("end to end with the real pipeline: a Snap error that echoes text never reaches /api/runs or /api/swarm", async () => {
+    const build = (router: Router | null) => {
+      const runtime: RuntimeDeps = { runs: new MemoryRunStore(), router, auditor: null, diags: [], payments: null };
       const app = new Hono();
       const runner = new SwarmRunner();
       const tasks: LoadedTasks = { tasks: [{ id: "s", surface: "Example Status", task: "Is it up? Check https://status.example.com/api/v2/status.json" }], source: "builtin", rejected: 0, reason: null };
@@ -662,23 +669,18 @@ describe("public run records: only the rendered answer and timings", () => {
       return { runs, grid, parsed: JSON.parse(runs).runs as RunRecord[] };
     };
 
-    // No distiller, no renderer: the pipeline's answer is the raw page text (truncated). Public: no answer.
-    const b0 = build({});
-    const bare = await swarm(b0);
-    // the stored record really does hold the page text as its stand-in answer (so this test means something)
-    expect((await b0.runtime.runs.listRuns({ limit: 1 }))[0].answer).toContain("PAGE-TEXT-7f3a");
-    expect(bare.parsed).toHaveLength(2);
-    expect(bare.parsed.every((r) => r.status === "done" && r.answer === null)).toBe(true);
-    expect(bare.runs + bare.grid).not.toContain("PAGE-TEXT-7f3a");
+    // Snap picks: runs are done, decide-only (no answer), and the public record shows the chosen tool.
+    const ok = await swarm(build({ async route() { return { choices: [{ asset_id: "web_fetch", p: 0.8 }], ms: 2, usage: { input_tokens: 100, output_tokens: 0 } }; } }));
+    expect(ok.parsed).toHaveLength(2);
+    expect(ok.parsed.every((r) => r.status === "done" && r.answer === null && r.assets[0]?.asset_id === "web_fetch")).toBe(true);
 
-    // A distiller whose provider error echoes the request (the page text): still nothing public.
-    const echo = await swarm(build({
-      distiller: { async distill(_t, raw) { throw new Error(`subq /chat/completions http 422 validation_error: {"input":"${raw.slice(0, 200)}"}`); } },
-      renderer: { async render() { return { text: "It is up: all systems operational.", model: "@cf/test", fallback_used: false, ms: 2, usage: { input_tokens: 10, output_tokens: 8 } }; } },
-    }));
-    expect(echo.runs + echo.grid).not.toContain("PAGE-TEXT-7f3a");
-    expect(echo.parsed[0].answer).toBe("It is up: all systems operational.");
-    expect(echo.parsed[0].timings.find((x) => x.tier === "distill")?.detail).toContain("[response excerpt hidden]");
+    // A Snap error whose response excerpt echoes text: the run fails and nothing of the excerpt is public.
+    const echo = build({ async route() { throw new Error(`subq /systemone http 422 validation_error: {"input":"${PAGE}"}`); } });
+    const bad = await swarm(echo);
+    expect((await echo.runtime.runs.listRuns({ limit: 1 }))[0].error).toContain("PAGE-TEXT-7f3a"); // stored for the operator (so this test means something)
+    expect(bad.parsed.every((r) => r.status === "failed")).toBe(true);
+    expect(bad.runs + bad.grid).not.toContain("PAGE-TEXT-7f3a");
+    expect(bad.parsed[0].timings.find((x) => x.tier === "snap")?.detail).toContain("[response excerpt hidden]");
   });
 });
 

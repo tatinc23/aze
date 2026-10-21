@@ -1,7 +1,7 @@
 // Tier 1: SubQ Snap (Decisions API). The router asks one yes/no question per catalog asset; the auditor scores every
 // note that passed the rule-based gate (third privacy layer) and fails open as "skipped" on any problem.
 import type { CleanNote, Match, NoteAudit } from "../types.js";
-import type { Asset, NoteAuditor, Router, Usage } from "../runtime/types.js";
+import type { Candidate, NoteAuditor, Router, Usage } from "../runtime/types.js";
 import {
   MAX_QUESTIONS, SubqError, ZERO_USAGE, addUsage, buildSnapRequest, choiceOf, noulOf, parseSnapResponse, redact, scoreLevelOf,
   subqRequestRetry, type SnapQuestion, type SnapResult, type SubqConfig,
@@ -13,8 +13,7 @@ export const AUDIT_TIMEOUT_MS = 3_000;
 /** Task text in the router's state (agent_run caps tasks at 500; the swarm calls the pipeline directly). */
 export const MAX_TASK_CHARS = 2_000;
 
-/** A System One decider: answers named noul/choice/score questions about a state with probabilities. SubQ Snap is
- * one; Workers AI (src/llm/workers-ai-systemone.ts) is a second, so routing can blend two different models. */
+/** A System One decider: answers named noul/choice/score questions about a state with probabilities (SubQ Snap). */
 export interface Decider {
   readonly model: string;
   decide(state: string, questions: Record<string, SnapQuestion>, timeoutMs: number): Promise<SnapResult & { ms: number; raw: string }>;
@@ -38,12 +37,12 @@ const oneLine = (s: string, max: number) => {
 };
 
 /** Snap state for routing: the task plus a one-line catalog of every candidate. */
-export function routeState(task: string, assets: Asset[]): string {
+export function routeState(task: string, assets: Candidate[]): string {
   return `TASK: ${oneLine(task, MAX_TASK_CHARS)}\nTOOLS: ${assets.map((a) => `${a.id} (${oneLine(a.description, 90)})`).join("; ")}`;
 }
 
 /** The router's yes/no question for one asset. */
-export function routeQuestion(a: Asset): SnapQuestion {
+export function routeQuestion(a: Candidate): SnapQuestion {
   return {
     type: "noul",
     instructions: `This task needs the tool '${a.id}': ${oneLine(a.description, 300)}`,
@@ -57,12 +56,13 @@ export function routeQuestion(a: Asset): SnapQuestion {
 export function createRouter(snap: Decider, opts: { timeoutMs?: number } = {}): Router {
   const timeoutMs = opts.timeoutMs ?? ROUTE_TIMEOUT_MS;
   return {
+    label: `SubQ Snap (${snap.model})`,
     async route(task, assets) {
       const t0 = Date.now();
       const usable = assets.filter((a) => a && a.active !== false && typeof a.id === "string");
       if (usable.length === 0) return { choices: [], ms: 0, usage: { ...ZERO_USAGE } };
       const state = routeState(task, usable);
-      const chunks: Asset[][] = [];
+      const chunks: Candidate[][] = [];
       for (let i = 0; i < usable.length; i += MAX_QUESTIONS) chunks.push(usable.slice(i, i + MAX_QUESTIONS));
       const settled = await Promise.allSettled(chunks.map((chunk) => {
         const questions: Record<string, SnapQuestion> = {};

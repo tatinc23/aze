@@ -39,7 +39,7 @@ if (!building && store.kind === "supabase") {
     .catch((e) => console.error("[store] supabase NOT ready (apply supabase/migrations/0001_init.sql):", (e as Error).message));
 }
 
-const runtime = buildRuntime(env, store);
+const runtime = buildRuntime(env);
 runtimeRef.current = runtime;
 const server = createServer({ store, paywall, baseUrl: env.MCP_URL, adminKey: env.ADMIN_KEY, runtime });
 if (!building) console.log(providersLine(runtime));

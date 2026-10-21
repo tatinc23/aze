@@ -1,8 +1,8 @@
 // Stream E: the swarm's micro-tasks. Muse's docs/muse/swarm-tasks.json ([{id, surface, task}]) when it exists and has
 // valid rows, else a built-in list of 12 real public lookups (public docs/status pages and APIs, no login, no money).
 // These are operator-chosen demo tasks; nothing here pretends to come from users.
-// Validation keeps the public dashboard clean: public surface names, task <= 500 chars, http(s) URLs only (the fetch
-// executor upgrades to https), no credentials, emails, private hosts, invisible/bidi characters or obvious prompt
+// Validation keeps the public dashboard clean: public surface names, task <= 500 chars, http(s) URLs only, no
+// credentials, emails, private hosts, invisible/bidi characters or obvious prompt
 // injection. The file is size-capped before it is read. Rejected rows are counted and logged by index + rule, never by
 // content.
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -33,7 +33,7 @@ export const BUILTIN_TASKS: readonly SwarmTask[] = Object.freeze([
   { id: "docker-hub-node-tags", surface: "Docker Hub", task: "Which tags were pushed most recently for the official node image? Check https://hub.docker.com/v2/repositories/library/node/tags?page_size=5 (public API, no login)." },
   { id: "crates-serde-latest", surface: "crates.io", task: "What is the newest version of the serde crate? Check https://crates.io/api/v1/crates/serde (public API)." },
   { id: "rfc-6585-429", surface: "RFC Editor", task: "What does HTTP status 429 Too Many Requests mean, and which header can tell a client when to retry? Check RFC 6585 at https://www.rfc-editor.org/rfc/rfc6585.txt." },
-  { id: "workers-ai-limits", surface: "Cloudflare Workers AI", task: "What are the default rate limits for text generation models on Cloudflare Workers AI? Check the public docs at https://developers.cloudflare.com/workers-ai/platform/limits/." },
+  { id: "go-latest", surface: "Go", task: "What is the newest stable Go release? Check the public release list at https://go.dev/dl/?mode=json." },
 ].map((t) => Object.freeze(t)));
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
@@ -42,8 +42,8 @@ const SURFACE_RE = /^[\p{L}\p{N}][\p{L}\p{N} .,&+()'’:_-]*$/u;
 const CONTROL_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 // Invisible and bidi-override characters: they can make public text read differently from what it says.
 const FORMAT_RE = /[\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff]/;
-// Obvious prompt injection. Task text reaches Snap, the arg filler, the distiller, the renderer and the note writer;
-// a curated lookup never needs to talk to the model about its instructions.
+// Obvious prompt injection. Task text (and agent_run's tool descriptions) reach Snap and the public run log; a curated
+// lookup never needs to talk to the model about its instructions.
 const INJECTION_RE = /\b(?:ignore|disregard|forget)\b[^.]{0,40}\b(?:previous|prior|above|earlier|all|any|your)\b[^.]{0,20}\b(?:instructions?|prompts?)\b|\bsystem prompt\b|\bdeveloper mode\b|\bjailbreak|\byou are now\b/i;
 const SCHEME_RE = /\b([a-z][a-z0-9+.-]*):\/\//gi;
 const USERINFO_RE = /\b[a-z][a-z0-9+.-]*:\/\/[^\s/?#@]*@/i;

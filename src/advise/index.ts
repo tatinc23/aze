@@ -1,4 +1,5 @@
-import type { Advisory, Envelope, Match, Settings, SurfaceScore } from "../types.js";
+import type { Advisory, Envelope, Match, Settings, Store, SurfaceScore } from "../types.js";
+import { errorClass, normalizeSurface } from "../gate/index.js";
 
 const MAX_ADVISORIES = 5;
 
@@ -33,6 +34,22 @@ export function buildEnvelope(surface: string, matches: Match[], settings: Setti
     };
   });
   return { surface, advisories, score, next: nextStep(advisories, settings, priceUsdc) };
+}
+
+/** The map check behind notes_query (and agent_run's first step): known issues for one service, optionally narrowed
+ * to a tool or an error. Logs the query. Never throws: a store failure gives an empty envelope with degraded: true. */
+export async function checkMap(store: Store, settings: Settings, surface: string, opts: { tool?: string | null; error?: string | null } = {}): Promise<Envelope> {
+  const key = normalizeSurface(surface);
+  const tool = opts.tool?.trim() || null;
+  try {
+    const matches = await store.findMatches({ surface: key, tool, error_class: opts.error ? errorClass(opts.error) : null }, MAX_ADVISORIES);
+    const score = (await store.scores(key))[0] ?? null;
+    await store.logQuery({ surface: key, tool, matched: matches.length });
+    return buildEnvelope(key, matches, settings, score);
+  } catch (e) {
+    console.error("notes_query degraded:", (e as Error).message);
+    return { ...buildEnvelope(key, [], settings, null), degraded: true };
+  }
 }
 
 /**

@@ -65,9 +65,7 @@ export function providersLine(rt: RuntimeDeps): string {
   const on = (v: unknown) => (v ? "on" : "off");
   const p = rt.payments;
   const pay = !p ? "off" : `on(${[p.onSettled ? "x402-record" : null, p.registerTools || p.registerRoutes ? "card" : null].filter(Boolean).join(",") || "none"})`;
-  const chat = rt.chatBackend ? ` chat=${rt.chatBackend}` : "";
-  return `RUNTIME providers: router=${on(rt.router)}${chat} args=${on(rt.args)} distiller=${on(rt.distiller)} notes=${on(rt.noteWriter)} ` +
-    `renderer=${on(rt.renderer)} auditor=${on(rt.auditor)} payments=${pay} diags=${rt.diags.length}`;
+  return `RUNTIME providers: router=${on(rt.router)} auditor=${on(rt.auditor)} payments=${pay} diags=${rt.diags.length}`;
 }
 
 /** DIAG_ON_BOOT=1: run every diag once, `delayMs` after boot, and log one DIAG line. Never throws; unref'd timer. */

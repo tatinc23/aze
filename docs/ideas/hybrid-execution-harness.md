@@ -43,4 +43,4 @@ past code.
 
 ## Open questions
 - Should Aze ship the whole harness, or just be the enrichment and decision service other harnesses call?
-- What does SubQ 1.1 Small take over from Workers AI (args, distill, note drafts), and at what cost?
+- Workers AI (args, distill, note drafts) was removed 2026-10-20. Which of those jobs, if any, should SubQ 1.1 Small do for the caller, and at what cost?

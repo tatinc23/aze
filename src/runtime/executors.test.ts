@@ -1,5 +1,5 @@
 // End to end over the real MCP surface: a real mcp-use server (Aze's createServer, memory store) on an ephemeral
-// port, the runtime's MCP client + executors calling it, and agent_run invoked as an MCP tool.
+// port, and the runtime's MCP client + executors calling it. (The decide-only pipeline no longer uses the executors.)
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../app.js";
 import { MemoryStore } from "../store/memory.js";
@@ -17,7 +17,7 @@ let server: { listen: (p: number) => Promise<{ port: number; url: string }>; clo
 let port = 0;
 const store = new MemoryStore();
 const runs = new MemoryRunStore();
-const runtime: RuntimeDeps = { runs, router: null, args: null, distiller: null, noteWriter: null, renderer: null, auditor: null, executors: {}, diags: [], payments: null };
+const runtime: RuntimeDeps = { runs, router: null, auditor: null, diags: [], payments: null };
 let built: ReturnType<typeof createExecutors>;
 
 beforeAll(async () => {
@@ -28,7 +28,6 @@ beforeAll(async () => {
   server = createServer({ store, paywall: null, runtime }) as never;
   port = (await server.listen(0)).port;
   built = createExecutors({ PORT: String(port) }, store);
-  runtime.executors = built.executors;
 }, 20_000);
 
 afterAll(async () => {
@@ -137,24 +136,5 @@ describe("mcp-client", () => {
     const r = await callTool(`http://localhost:${port}/mcp`, "notes_unlock", { note_id: "x" });
     expect(r).toMatchObject({ ok: false, isError: true, error: null });
     expect((r.data as { code: string }).code).toBe("paywall_unavailable");
-  });
-});
-
-describe("agent_run over MCP", () => {
-  it("requires the access key", async () => {
-    const r = await callTool(`http://localhost:${port}/mcp`, "agent_run", { task: "t", access_key: "wrong" });
-    expect((r.data as { code: string }).code).toBe("unauthorized");
-  });
-
-  it("runs the pipeline end to end: checks Aze over MCP, answers from facts, logs the run", async () => {
-    const r = await callTool(`http://localhost:${port}/mcp`, "agent_run", { task: "Can an unattended agent finish signup?", surface: "Inkbox", access_key: "e2e-key" }, { timeoutMs: 20_000 });
-    expect(r.ok).toBe(true);
-    const out = r.data as { run_id: string; status: string; answer: string; timings: Array<{ tier: string; detail: string }> };
-    expect(out.status).toBe("done");
-    expect(out.timings[0]).toMatchObject({ tier: "notes", detail: expect.stringMatching(/^pre-check: \d+ advisories/) });
-    expect(out.answer).toContain("Aze known issues");
-    const [rec] = await runs.listRuns({ limit: 1 });
-    expect(rec).toMatchObject({ id: out.run_id, status: "done", surface: "Inkbox" });
-    expect((await runs.listAssets()).map((a) => a.id)).toContain("web_fetch"); // catalog seeded at registration
   });
 });

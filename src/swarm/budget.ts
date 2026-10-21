@@ -1,5 +1,5 @@
 // Stream E: the spend cap for operator-started runs (swarm agents + POST /admin/run). Every run spends provider
-// credits (Snap, SubQ, Workers AI, the Snap note audit), and prices are partly unknown, so the honest cap is a run
+// credits (SubQ Snap routing; notes it leads to add Snap audits), and prices are partly unknown, so the honest cap is a run
 // count: at most `max` runs per sliding hour. A swarm reserves all n of its runs up front (a 100-agent swarm that would
 // stall halfway is worse for the demo than a clear 429), and gets back the ones a stop kept from starting.
 // In memory only: it resets on restart, like the swarm grid. A leaked admin key can spend at most `max` runs an hour.

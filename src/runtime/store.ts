@@ -7,7 +7,7 @@ import type { Asset, ExecutorKind, NewRun, RunRecord, RunStats, RunStore, Tier, 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const MAX_LIST = 500;
 const clampList = (n: number) => Math.min(MAX_LIST, Math.max(1, Math.floor(n) || 1));
-const TIERS: readonly Tier[] = ["snap", "args", "execute", "distill", "render", "notes"];
+const TIERS: readonly Tier[] = ["notes", "snap"];
 
 /** Pure stats over runs. avg_ms_by_tier: per run, the sum of that tier's ok timings (failed/unavailable entries are
  * excluded so fallbacks don't pull averages toward 0), averaged over runs that have one. cost: sums per tier, nulls

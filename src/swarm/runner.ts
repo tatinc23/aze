@@ -4,7 +4,12 @@
 // run is also logged by the pipeline in the RunStore.
 // The state never holds payout addresses or identities: the address goes straight into the run's AgentContext.
 import { randomBytes } from "node:crypto";
-import type { AgentContext, Pipeline, RunRecord, RunStore } from "../runtime/types.js";
+import type { AgentContext, RunRecord, RunStore } from "../runtime/types.js";
+
+/** What the runner needs from the pipeline: one run per task (the decide-only Pipeline satisfies it). */
+export interface Pipeline {
+  run(task: string, surface: string | null, ctx: AgentContext): Promise<RunRecord>;
+}
 import { loadTasks, type SwarmTask } from "./tasks.js";
 import type { Wallets } from "./wallets.js";
 

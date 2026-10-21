@@ -2,9 +2,9 @@
 import { MCPServer } from "mcp-use";
 import { z } from "zod";
 import { KINDS, DEFAULT_SETTINGS, type NoteAudit, type Store } from "./types.js";
-import { gate, normalizeSurface, errorClass } from "./gate/index.js";
+import { gate, normalizeSurface } from "./gate/index.js";
 import { attest } from "./identity/index.js";
-import { buildEnvelope, formatUsdc } from "./advise/index.js";
+import { checkMap, formatUsdc } from "./advise/index.js";
 import { split } from "./pay/split.js";
 import type { createPaywall } from "./pay/index.js";
 import { registerWeb } from "./web/index.js";
@@ -167,17 +167,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ surface, tool, error }: { surface: string; tool?: string; error?: string }) => {
-      const key = normalizeSurface(surface);
-      const settings = await settingsOf();
-      try {
-        const matches = await store.findMatches({ surface: key, tool: tool?.trim() || null, error_class: error ? errorClass(error) : null }, 5);
-        const score = (await store.scores(key))[0] ?? null;
-        await store.logQuery({ surface: key, tool: tool?.trim() || null, matched: matches.length });
-        return json(buildEnvelope(key, matches, settings, score) as unknown as Record<string, unknown>);
-      } catch (e) {
-        console.error("notes_query degraded:", (e as Error).message);
-        return json({ ...buildEnvelope(key, [], settings, null), degraded: true } as unknown as Record<string, unknown>);
-      }
+      return json(await checkMap(store, await settingsOf(), surface, { tool, error }) as unknown as Record<string, unknown>);
     },
   );
 

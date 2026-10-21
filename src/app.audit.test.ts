@@ -9,8 +9,7 @@ import type { RuntimeDeps } from "./runtime/types.js";
 const store = new MemoryStore();
 const audit = vi.fn(async () => ({ status: "ok" as const, p_private: 0, p_real_issue: 1, category: "docs", severity: 1, model: "fake", ms: 1, reason: null }));
 const runtime: RuntimeDeps = {
-  runs: new MemoryRunStore(), router: null, args: null, distiller: null, noteWriter: null, renderer: null,
-  auditor: { audit }, executors: {}, diags: [], payments: null,
+  runs: new MemoryRunStore(), router: null, auditor: { audit }, diags: [], payments: null,
 };
 let server: { listen: (p: number) => Promise<{ port: number }>; close: () => Promise<void> };
 let url = "";

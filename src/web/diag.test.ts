@@ -23,7 +23,7 @@ const noSecrets = (s: string) => {
   for (const v of [ENV.SUBQ_API_KEY, ENV.CF_API_TOKEN, ENV.CF_ACCOUNT_ID, ENV.STRIPE_SECRET_KEY, ENV.SWARM_SEED, ADDR, "sk_test_zzzzzzzzzzzz"]) expect(s).not.toContain(v);
 };
 const runtime = (over: Partial<RuntimeDeps> = {}): RuntimeDeps => ({
-  runs: new MemoryRunStore(), router: null, args: null, distiller: null, noteWriter: null, renderer: null, auditor: null, executors: {}, diags: [], payments: null, ...over,
+  runs: new MemoryRunStore(), router: null, auditor: null, diags: [], payments: null, ...over,
 });
 
 afterEach(() => {
@@ -66,13 +66,13 @@ describe("diag redaction", () => {
 
 describe("boot lines", () => {
   it("providersLine says which providers are wired, never any value", () => {
-    expect(providersLine(runtime())).toBe("RUNTIME providers: router=off args=off distiller=off notes=off renderer=off auditor=off payments=off diags=0");
+    expect(providersLine(runtime())).toBe("RUNTIME providers: router=off auditor=off payments=off diags=0");
     const fake = {} as never;
     const line = providersLine(runtime({
-      router: fake, args: fake, distiller: fake, noteWriter: fake, renderer: fake, auditor: fake,
+      router: fake, auditor: fake,
       payments: { onSettled: async () => {} }, diags: [leaky("a"), leaky("b")],
     }));
-    expect(line).toBe("RUNTIME providers: router=on args=on distiller=on notes=on renderer=on auditor=on payments=on(x402-record) diags=2");
+    expect(line).toBe("RUNTIME providers: router=on auditor=on payments=on(x402-record) diags=2");
     expect(providersLine(runtime({ payments: { onSettled: async () => {}, registerTools: () => {}, registerRoutes: () => {} } }))).toContain("payments=on(x402-record,card)");
   });
 

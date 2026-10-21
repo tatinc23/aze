@@ -1,19 +1,19 @@
 // Stream E: swarm admin routes and the public run APIs behind the dashboard's agent grid and economics panel.
 //   POST /admin/swarm {n, concurrency}  (x-admin-key) → {ok, swarm_id, ...}; 409 while one is running
 //   POST /admin/swarm/stop              (x-admin-key) → {ok, stopped, swarm_id}
-//   POST /admin/run {task, surface}     (x-admin-key) → one pipeline run, the RunRecord (operator view)
+//   POST /admin/run {task, surface}     (x-admin-key) → one decide-only run over the catalog: RunRecord + decision
 //   GET  /api/swarm                     → current/last swarm for the grid (no addresses, no identities)
-//   GET  /api/runs?limit=20[&swarm_id=] → recent runs (public task text, rendered answers, timings, costs)
+//   GET  /api/runs?limit=20[&swarm_id=] → recent runs (public task text, chosen tools, timings, costs)
 //   GET  /api/runs/stats[?swarm_id=]    → RunStats
 // Admin routes spend provider credits, so the key is required and compared in constant time, and every operator run
 // (swarm agents + /admin/run) counts against one hourly run budget (SWARM_RUNS_PER_HOUR, default 300).
 // Public reads are cached for a few seconds so many dashboards polling cannot hammer the store, time out (503) because
 // supabase-js has no request timeout, and at most a few uncached store reads run at once (503 "busy" beyond that).
-// Public run records carry only the rendered answer and timings: never the raw tool output (fetched page text), the
-// distilled facts that stand in for an answer when rendering failed, or provider response excerpts.
+// Runs are decide-only since 2026-10-20 (no answer). Older rows can hold an answer: public records show it only when
+// the old renderer wrote it, never raw tool output, distilled facts or provider response excerpts.
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Store } from "../types.js";
-import { createPipeline, NOTHING_TO_DO } from "../runtime/pipeline.js";
+import { createPipeline } from "../runtime/pipeline.js";
 import type { AgentContext, Pipeline, RunRecord, RunStats, RuntimeDeps, Tier, TierTiming } from "../runtime/types.js";
 import { createRunBudget, runsPerHour, type RunBudget } from "../swarm/budget.js";
 import { defaultRunner, intInRange, MAX_AGENTS, SwarmBusyError, SwarmInputError, type SwarmRunner, type SwarmState } from "../swarm/runner.js";
@@ -31,7 +31,9 @@ export const PUBLIC_MAX_IN_FLIGHT = 6;
 export const ADMIN_RUN_MAX_IN_FLIGHT = 3;
 export const PUBLIC_DETAIL_MAX = 240;
 const SWARM_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const TIERS: readonly Tier[] = ["snap", "args", "execute", "distill", "render", "notes"];
+const TIERS: readonly Tier[] = ["notes", "snap"];
+/** The fixed answer of pre-2026-10-20 runs that had nothing to do (safe to show). */
+export const LEGACY_NOTHING_TO_DO = "Nothing to report: no surface was given and no warehouse asset was needed or available for this task.";
 
 export interface RuntimeWebDeps {
   store: Store;
@@ -73,11 +75,11 @@ export function redactPublic<T>(v: T): T {
   return (typeof v === "string" ? v.replace(EVM_ADDRESS_RE, "0x[address]").replace(SECRET_MASK_RE, "[secret]") : v) as T;
 }
 
-// Provider errors carry a raw response excerpt (SubQ: "http 422 validation_error: {...}", "returned non-JSON: ...";
-// Workers AI: "http 500: ..."). An error body can echo the request, and the distiller's request is the fetched page
-// text, so on public endpoints the excerpt is cut. The pipeline's own wording around it is kept.
+// Provider errors carry a raw response excerpt (SubQ: "http 422 validation_error: {...}", "returned non-JSON: ...").
+// An error body can echo the request (task text, tool descriptions; in pre-2026-10-20 rows, fetched page text), so on
+// public endpoints the excerpt is cut. The pipeline's own wording around it is kept.
 const EXCERPT_RE = /\b(http \d{3}(?: [a-z_]+)?|returned non-JSON|gave no valid JSON after (?:a retry|one try \(no time left to retry\))): /i;
-const PIPELINE_TAIL_RE = /\)(?:: (?:raw truncated to 4 KB|facts returned|fallback(?: web_fetch(?: \(URL in task\))?|, nothing chosen)))?$/;
+const PIPELINE_TAIL_RE = /\)(?:: (?:nothing ranked|raw truncated to 4 KB|facts returned|fallback(?: web_fetch(?: \(URL in task\))?|, nothing chosen)))?$/;
 /** An operational string (timing detail, run or agent error) as shown publicly: excerpt cut, addresses and
  * secret-shaped tokens masked, one line, length-capped. Non-strings pass through. */
 export function publicText<T>(v: T): T {
@@ -92,12 +94,12 @@ export function publicText<T>(v: T): T {
   return (s.length > PUBLIC_DETAIL_MAX ? `${s.slice(0, PUBLIC_DETAIL_MAX - 1)}…` : s) as T;
 }
 
-/** The answer only when it is the renderer's (a render timing with ok: true) or the pipeline's fixed "nothing to
- * report" text. Otherwise the pipeline put the distilled facts or the raw tool output (fetched page text) there as a
+/** Legacy runs only: the answer only when it is the old renderer's (a render timing with ok: true) or the old
+ * pipeline's fixed "nothing to report" text. Otherwise the pipeline put the distilled facts or the raw tool output (fetched page text) there as a
  * stand-in, and that never goes on a public endpoint. */
-export function renderedAnswer(r: Pick<RunRecord, "answer" | "timings">): string | null {
+export function renderedAnswer(r: { answer: string | null; timings: unknown }): string | null {
   if (typeof r.answer !== "string" || !r.answer) return null;
-  if (r.answer === NOTHING_TO_DO) return r.answer;
+  if (r.answer === LEGACY_NOTHING_TO_DO) return r.answer;
   const rendered = Array.isArray(r.timings) && r.timings.some((t) => t?.tier === "render" && t.ok === true);
   // A fetched page can put emails, handles or IPs into the answer (prompt injection or plain content): mask them too.
   return rendered ? maskIdentifiers(redactPublic(r.answer)) : null;
@@ -155,12 +157,17 @@ const publicCost = (c: unknown): RunRecord["cost_micro_usd"] => {
   return out;
 };
 
+/** agent_run's chosen tools are the caller's own tool names, which can name a private org or product: never public. */
+export const CALLER_TOOL = "[caller tool]";
+
 /** A RunRecord with whitelisted fields only (the store row may carry more columns than the contract): rule-breaking
- * task/surface text hidden, the answer only when rendered, provider excerpts cut, addresses and secrets masked. */
+ * task/surface text hidden, caller tool names masked, the answer only when rendered, provider excerpts cut, addresses
+ * and secrets masked. */
 export function publicRun(r: RunRecord): RunRecord {
+  const callerTools = r.agent_id === "agent_run";
   return {
     id: r.id, created_at: r.created_at, agent_id: r.agent_id, swarm_id: r.swarm_id, task: publicTask(r.task), surface: publicSurface(r.surface), status: r.status,
-    attestation: r.attestation, assets: Array.isArray(r.assets) ? r.assets.map((a) => ({ asset_id: a?.asset_id, p: a?.p })) : [],
+    attestation: r.attestation, assets: Array.isArray(r.assets) ? r.assets.map((a) => ({ asset_id: callerTools ? CALLER_TOOL : a?.asset_id, p: a?.p })) : [],
     timings: Array.isArray(r.timings) ? r.timings.map(publicTiming) as TierTiming[] : [], raw_bytes: r.raw_bytes, distilled_bytes: r.distilled_bytes,
     cost_micro_usd: publicCost(r.cost_micro_usd), answer: renderedAnswer(r),
     notes_filed: Array.isArray(r.notes_filed) ? r.notes_filed.map(String) : [], error: publicText(r.error), finished_at: r.finished_at,
@@ -173,6 +180,7 @@ export function publicRun(r: RunRecord): RunRecord {
 export function operatorRun(r: RunRecord): RunRecord {
   return {
     ...publicRun(r),
+    assets: Array.isArray(r.assets) ? r.assets.map((a) => ({ asset_id: a?.asset_id, p: a?.p })) : [],
     timings: Array.isArray(r.timings) ? r.timings.map(operatorTiming) as TierTiming[] : [],
     answer: redactPublic(typeof r.answer === "string" ? r.answer : null), error: redactPublic(r.error),
   };
@@ -235,7 +243,7 @@ export function registerRuntimeWeb(app: any, deps: RuntimeWebDeps): void {
   const storeMs = deps.storeTimeoutMs ?? PUBLIC_STORE_TIMEOUT_MS;
   let pipeline: Pipeline | null = deps.pipeline ?? null;
   // Lazy: nothing is built until an operator runs something.
-  const getPipeline = (): Pipeline => (pipeline ??= createPipeline(deps.store, deps.runtime));
+  const getPipeline = (): Pipeline => (pipeline ??= createPipeline({ store: deps.store, runs: deps.runtime.runs, router: deps.runtime.router }));
   const runsCache = ttlCache<RunRecord[]>(cacheMs);
   const statsCache = ttlCache<RunStats>(cacheMs);
   const gate = storeGate(deps.maxInFlight ?? PUBLIC_MAX_IN_FLIGHT);
@@ -349,7 +357,7 @@ export function registerRuntimeWeb(app: any, deps: RuntimeWebDeps): void {
     adminRuns++;
     try {
       const r = await getPipeline().run(task, surface, ctx);
-      return c.json(operatorRun(r));
+      return c.json({ ...operatorRun(r), decision: r.decision });
     } catch (e) {
       // Pipeline.run never throws by contract; this is the last line of defence.
       console.error("[admin/run] pipeline error:", short(e));

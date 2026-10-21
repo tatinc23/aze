@@ -84,7 +84,7 @@ describe("review hardening: invisible characters, prompt injection, oversized fi
     for (const t of [
       "Does GitHub let org owners override the branch protection rules? Check https://docs.github.com/en/rest",
       "Which HTTP header tells a client to ignore a cached response? Check https://www.rfc-editor.org/rfc/rfc9111.txt",
-      "What are the default rate limits for text generation models on Cloudflare Workers AI? Check https://developers.cloudflare.com/workers-ai/platform/limits/.",
+      "What are the default rate limits of the Stripe API? Check https://docs.stripe.com/rate-limits.",
     ]) expect(ok(t).ok, t).toBe(true);
     for (const t of BUILTIN_TASKS) expect(taskTextRule(t.task)).toBeNull();
   });
@@ -103,7 +103,7 @@ describe("taskTextRule / surfaceRule (shared with POST /admin/run)", () => {
     expect(taskTextRule("Fetch https://a:b@x.com")).toBe("task_url_credentials");
     expect(taskTextRule("Fetch https://10.0.0.5/admin")).toBe("task_private_host");
     expect(taskTextRule("x".repeat(MAX_TASK_CHARS + 1))).toBe("task_too_long");
-    expect(surfaceRule("Cloudflare Workers AI")).toBeNull();
+    expect(surfaceRule("Google Cloud Run")).toBeNull();
     expect(surfaceRule("ken@example.com")).toBe("surface_not_public_name");
     expect(surfaceRule("x".repeat(61))).toBe("surface_too_long");
   });

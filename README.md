@@ -72,7 +72,7 @@ Check the map → Snap picks tools → your LLM runs them and answers → fricti
 | Run and answer | Your LLM | Call the chosen tools with its own inputs, heed the known issues, and write the answer. Aze runs no tools and writes no answers. |
 | Report | Your LLM, through `notes_file` | File what blocked it, so the next agent is warned. |
 
-`agent_run` (operator key) takes the task and the caller's candidate tools, and returns the chosen tools with Snap's probabilities, every tool's score, the known issues that apply, and a one-line next step. The plan is two SubQ models working together: Snap for fast typed decisions, and SubQ 1.1 Small for long-context reasoning in language, once it's available to us.
+`agent_run` (operator key) takes the task and the caller's candidate tools, and returns the chosen tools with Snap's probabilities, every tool's score, the known issues that apply, and a one-line next step. The plan is two SubQ models working together: Snap for fast typed decisions, and SubQ 1.1 Small for long-context reasoning in language, once it's available to us. Its first job will be synthesizing filed notes into bottleneck reports.
 
 ## Evidence (October 18, 2026, test mode)
 
@@ -84,7 +84,8 @@ Check the map → Snap picks tools → your LLM runs them and answers → fricti
 - **Measured token savings.** The mechanisms above are live, but we haven't yet measured end-to-end savings against agents that don't check Aze. That's the next experiment.
 - **Known issues steering routing directly.** Today they come back next to Snap's pick; Snap doesn't see them when it scores.
 - **Build fixes for the most common bottlenecks the data shows, and offer them to agents and vendors.**
-- **A Stripe card unlock**, and SubQ 1.1 Small as the long-context language model once it's on our key.
+- **A Stripe card unlock.**
+- **Bottleneck reports.** SubQ 1.1 Small (when our key has it) will synthesize filed notes into bottleneck reports.
 
 Test mode only: no real money moves.
 

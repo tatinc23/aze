@@ -5,11 +5,15 @@
 // object option -> description|null, score an ordered array, lowest first. Score answers are the probability-weighted
 // 0-based level index with `legend`/`probabilities` keyed "0".."n-1" (System One score primitive). Parsers still
 // accept variants because nothing here was verified against the live API from this container.
-// Errors are `{"detail": {"error_type", "message"}}` (Muse M1); errorDetail reads them.
+// Chat is OpenAI-compatible (POST /v1/chat/completions); `store: false` keeps our prompts out of SubQ's storage. JSON
+// mode is `response_format: {type: "json_schema", json_schema: {name, strict: true, schema}}` (Muse M1). The chat
+// client (./chat.ts) is unwired for now. Errors are `{"detail": {"error_type", "message"}}` (Muse M1); errorDetail reads them.
 import type { Usage } from "../runtime/types.js";
 
 export const DEFAULT_BASE_URL = "https://api.subq.ai/v1";
 export const DEFAULT_SNAP_MODEL = "subq-snap-preview";
+/** Chat model when SUBQ_CHAT_MODEL is unset. Set SUBQ_CHAT_MODEL to the SubQ 1.1 Small id once the key has it. */
+export const DEFAULT_CHAT_MODEL = "subq-preview";
 /** Raw response excerpt length for diag output and errors. */
 export const EXCERPT_CHARS = 500;
 export const MAX_QUESTIONS = 16;
@@ -20,7 +24,15 @@ export interface SubqConfig {
   baseUrl: string; // no trailing slash
   apiKey: string;
   snapModel: string;
+  chatModel: string;
+  /** Chat `reasoning_effort`; null/absent = not sent. subqConfig defaults it to "low" (SUBQ_REASONING_EFFORT). */
+  reasoningEffort?: ReasoningEffort | null;
 }
+
+/** Documented chat `reasoning_effort` values (Muse M1). Reasoning is billed as output and never returned. */
+export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+export const DEFAULT_REASONING_EFFORT: ReasoningEffort = "low";
 
 export const ZERO_USAGE: Usage = Object.freeze({ input_tokens: 0, output_tokens: 0 }) as Usage;
 export const addUsage = (a: Usage, b: Usage): Usage => ({ input_tokens: a.input_tokens + b.input_tokens, output_tokens: a.output_tokens + b.output_tokens });
@@ -410,6 +422,53 @@ export function scoreLevelOf(a: SnapAnswer | undefined, levels: string[]): numbe
   }
   if (idx === null || !Number.isFinite(idx)) return null;
   return Math.min(n, Math.max(1, Math.round(idx) + 1));
+}
+
+// ---------- Chat (OpenAI-compatible) ----------
+export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+
+/** A strict JSON schema for chat JSON mode. `name` must match ^[a-zA-Z0-9_-]{1,64}$. */
+export interface JsonSchemaFormat {
+  name: string;
+  schema: Record<string, unknown>;
+}
+
+/** OpenAI-style body. JSON mode is `response_format: {type: "json_schema", json_schema: {name, strict: true, schema}}`
+ * (SubQ docs, Muse M1). `store: false` (documented; default true) keeps task text, tool output and step errors out of
+ * SubQ's storage. `max_tokens`, never `max_completion_tokens` (SubQ docs). `reasoning_effort` only when given. */
+export function buildChatRequest(
+  model: string,
+  messages: ChatMessage[],
+  opts: { schema?: JsonSchemaFormat | null; maxTokens?: number; reasoningEffort?: string | null } = {},
+): Record<string, unknown> {
+  return {
+    model,
+    messages,
+    ...(opts.schema ? { response_format: { type: "json_schema", json_schema: { name: opts.schema.name, strict: true, schema: opts.schema.schema } } } : {}),
+    ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+    ...(opts.reasoningEffort ? { reasoning_effort: opts.reasoningEffort } : {}),
+    store: false,
+  };
+}
+
+const textOf = (c: unknown): string | null => {
+  if (typeof c === "string") return c;
+  if (Array.isArray(c)) {
+    const parts = c.map((p) => (typeof p === "string" ? p : isObj(p) && typeof p.text === "string" ? p.text : "")).filter(Boolean);
+    return parts.length ? parts.join("") : null;
+  }
+  return null;
+};
+
+/** Response of POST /chat/completions: first choice's text (string or content parts), usage, finish reason. */
+export function parseChatResponse(json: unknown): { text: string; usage: Usage; finish_reason: string | null } {
+  if (!isObj(json)) throw new SubqError("bad_response", "chat response is not a JSON object");
+  const choice = Array.isArray(json.choices) && isObj(json.choices[0]) ? json.choices[0] : null;
+  const msg = choice && isObj(choice.message) ? choice.message : null;
+  const text = textOf(msg?.content) ?? textOf(choice?.text) ?? textOf(json.output_text) ?? textOf(json.content);
+  const finish_reason = typeof choice?.finish_reason === "string" ? choice.finish_reason : null;
+  if (text === null) throw new SubqError("bad_response", `chat response has no message content${finish_reason ? ` (finish_reason ${finish_reason})` : ""}`);
+  return { text, usage: parseUsage(json.usage), finish_reason };
 }
 
 /** GET /models: ids from {data: [{id}]} (OpenAI shape), {models: [...]}, or a bare array. */

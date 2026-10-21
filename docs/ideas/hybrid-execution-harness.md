@@ -43,4 +43,4 @@ past code.
 
 ## Open questions
 - Should Aze ship the whole harness, or just be the enrichment and decision service other harnesses call?
-- Workers AI (args, distill, note drafts) was removed 2026-10-20. Which of those jobs, if any, should SubQ 1.1 Small do for the caller, and at what cost?
+- Workers AI (args, distill, note drafts) was removed 2026-10-20. SubQ 1.1 Small's intended job (Ken, 2026-10-20) is synthesizing filed notes into bottleneck reports; the SubQ chat client (`src/subq/chat.ts`) is kept unwired for it. Which other jobs, if any, should it do, and at what cost?

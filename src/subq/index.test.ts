@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { auditModeOf, baseUrlOf, createDiags, createSubq, subqConfig } from "./index.js";
+import { auditModeOf, baseUrlOf, createDiags, createSubq, reasoningEffortOf, subqConfig } from "./index.js";
 
 const KEY = "sq-live-diag-key-0987654321";
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
@@ -22,6 +22,10 @@ describe("createSubq", () => {
     const s = createSubq({ SUBQ_API_KEY: KEY });
     expect(s.router && s.auditor).toBeTruthy();
     expect(s.diags.map((d) => d.name)).toEqual(["subq-models", "subq-snap", "subq-snap-typed"]);
+    // The chat client is unwired; setting SUBQ_CHAT_MODEL (SubQ 1.1 Small, later) adds only its diag, no job.
+    const withChat = createSubq({ SUBQ_API_KEY: KEY, SUBQ_CHAT_MODEL: "subq-small" });
+    expect(withChat.diags.map((d) => d.name)).toEqual(["subq-models", "subq-snap", "subq-snap-typed", "subq-chat"]);
+    expect(Object.keys(withChat).sort()).toEqual(["auditor", "diags", "router"]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -32,9 +36,18 @@ describe("createSubq", () => {
   });
 
   it("reads base URL and model overrides", () => {
-    expect(subqConfig({ SUBQ_API_KEY: KEY })).toEqual({ apiKey: KEY, baseUrl: "https://api.subq.ai/v1", snapModel: "subq-snap-preview" });
-    expect(subqConfig({ SUBQ_API_KEY: KEY, SUBQ_BASE_URL: "https://proxy.test/v1/", SUBQ_SNAP_MODEL: "snap-x" }))
-      .toMatchObject({ baseUrl: "https://proxy.test/v1", snapModel: "snap-x" });
+    expect(subqConfig({ SUBQ_API_KEY: KEY })).toEqual({ apiKey: KEY, baseUrl: "https://api.subq.ai/v1", snapModel: "subq-snap-preview", chatModel: "subq-preview", reasoningEffort: "low" });
+    expect(subqConfig({ SUBQ_API_KEY: KEY, SUBQ_BASE_URL: "https://proxy.test/v1/", SUBQ_SNAP_MODEL: "snap-x", SUBQ_CHAT_MODEL: "chat-y" }))
+      .toMatchObject({ baseUrl: "https://proxy.test/v1", snapModel: "snap-x", chatModel: "chat-y" });
+  });
+
+  it("SUBQ_REASONING_EFFORT: documented values pass, off/omit sends none, unset or unknown = low", () => {
+    for (const v of ["none", "minimal", "low", "medium", "high", "xhigh", "max"]) expect(reasoningEffortOf(v)).toBe(v);
+    expect(reasoningEffortOf(" HIGH ")).toBe("high");
+    for (const v of ["off", "omit", "unset", "false", "0"]) expect(reasoningEffortOf(v)).toBeNull();
+    for (const v of [undefined, "", "turbo"]) expect(reasoningEffortOf(v)).toBe("low");
+    expect(subqConfig({ SUBQ_API_KEY: KEY, SUBQ_REASONING_EFFORT: "off" })!.reasoningEffort).toBeNull();
+    expect(subqConfig({ SUBQ_API_KEY: KEY, SUBQ_REASONING_EFFORT: "minimal" })!.reasoningEffort).toBe("minimal");
   });
 
   it("SUBQ_BASE_URL: https, or http only for a local fake; anything else falls back to the real API", () => {
@@ -67,7 +80,7 @@ describe("createSubq", () => {
 });
 
 describe("SubQ diags", () => {
-  const cfg = { apiKey: KEY, baseUrl: "https://api.subq.test/v1", snapModel: "subq-snap-preview" };
+  const cfg = { apiKey: KEY, baseUrl: "https://api.subq.test/v1", snapModel: "subq-snap-preview", chatModel: "subq-preview" };
   const byName = (name: string) => createDiags(cfg).find((d) => d.name === name)!;
 
   it("subq-models lists ids and includes the raw response excerpt", async () => {
@@ -109,6 +122,45 @@ describe("SubQ diags", () => {
     expect(typed).toMatchObject({ ok: true });
     expect(typed.detail).toContain("choice=outage severity=3/3");
     expect(bodies[1].questions.kind.criteria).toEqual({ outage: "The service was down", docs: "The docs were wrong" });
+  });
+
+  it("subq-chat makes one tiny strict-JSON completion and says what the server took", async () => {
+    const bodies: any[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return json({ choices: [{ message: { content: '{"ok": true}' }, finish_reason: "stop" }], usage: { prompt_tokens: 20, completion_tokens: 5 } });
+    }));
+    const r = await createDiags({ ...cfg, reasoningEffort: "low" }, { chat: true }).find((d) => d.name === "subq-chat")!.check();
+    expect(r.ok).toBe(true);
+    expect(r.detail).toContain('subq-preview said "{\\"ok\\": true}" json={"ok":true} finish=stop response_format=json_schema reasoning_effort=low');
+    expect(r.detail).toContain('| raw: {"choices"');
+    expect(bodies[0]).toEqual({
+      model: "subq-preview",
+      messages: [{ role: "user", content: 'Reply with exactly this JSON object and nothing else: {"ok": true}' }],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "diag_ok", strict: true, schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false } },
+      },
+      max_tokens: 200,
+      reasoning_effort: "low",
+      store: false,
+    });
+  });
+
+  it("subq-chat reports a refused json_schema / reasoning_effort with the raw refusal excerpt", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      if (body.reasoning_effort) return json({ detail: { error_type: "validation_error", message: "reasoning_effort: not supported" } }, 422);
+      if (body.response_format) return json({ detail: { error_type: "validation_error", message: "response_format: json_schema not supported" } }, 400);
+      return json({ choices: [{ message: { content: '{"ok": true}' } }] });
+    }));
+    const r = await createDiags({ ...cfg, reasoningEffort: "low" }, { chat: true }).find((d) => d.name === "subq-chat")!.check();
+    expect(r.ok).toBe(true);
+    expect(r.detail).toContain("response_format=none reasoning_effort=none");
+    expect(r.detail).toContain('dropped reasoning_effort (http 422): {"detail":{"error_type":"validation_error","message":"reasoning_effort: not supported"}}');
+    expect(r.detail).toContain("dropped response_format (http 400)");
+    warn.mockRestore();
   });
 
   it("reports HTTP errors with the raw excerpt, never the key, and never throws", async () => {

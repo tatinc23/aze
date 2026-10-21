@@ -39,12 +39,13 @@
 - [x] Pipeline copy states the final flow (Ken): Snap picks tools, Workers AI structures, your LLM answers. Clef skipped (Ken 2026-10-20)
 - [ ] Ken: merge the PR, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
 - [x] BEFORE the rescore: Snap-only `agent_run` (task + caller's tools in; Snap decisions + advisories out; caller's LLM does the rest) and remove Workers AI (Ken 2026-10-20). Branch `claude/agent-run-decide-only`
-- [ ] Later: SubQ 1.1 Small for the language tier when the key has it; see docs/ideas/hybrid-execution-harness.md
+- [ ] Later: SubQ 1.1 Small on the key -> set SUBQ_CHAT_MODEL, wire the bottleneck-report job; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
 
 ## Session 5 (2026-10-20): decide-only agent_run
 - [x] agent_run: task + caller's tools in; map check, Snap scores, advisories + next step out; outputSchema `runOutput`
-- [x] Workers AI + SubQ chat code removed; swarm and /admin/run decide-only over the catalog
+- [x] Workers AI + the old args/distill/note-writer roles removed; swarm and /admin/run decide-only over the catalog
+- [x] SubQ chat client kept unwired for SubQ 1.1 Small (Ken): job = synthesize filed notes into bottleneck reports
 - [x] Dashboard "How a run works" + economics (map check, Snap) and README runtime table / token-savings copy updated
 - [ ] Ken: merge PR #13, then this PR; delete the unused env vars listed in HANDOFF.md
 - [ ] Ken: delete or keep `src/runtime/executors.ts` / `fetch.ts` / `mcp-client.ts` (unwired now)

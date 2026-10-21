@@ -34,7 +34,8 @@ SubQ Snap (the only model: `agent_run` routing + the note audit) · vitest. Shar
 runtime contracts `src/runtime/types.ts`.
 `agent_run` is decide-only (Ken 2026-10-20): task + the caller's tools in → map check → Snap scores the tools → chosen
 tools, scores, advisories and a next step out. The caller's LLM runs the tools and answers; Aze runs no tools and writes
-no answers or notes. Workers AI was removed the same day; don't bring a second model back without Ken.
+no answers or notes. Workers AI was removed the same day; don't bring a second model back without Ken. The SubQ chat
+client stays unwired for SubQ 1.1 Small (see the SubQ gotcha below).
 
 ## Commands
 - Tests: `npm test` · typecheck: `npx tsc --noEmit` · local server: `npx tsx index.ts`
@@ -51,8 +52,10 @@ no answers or notes. Workers AI was removed the same day; don't bring a second m
 - Newer Supabase projects don't auto-grant table privileges: migration 0002 grants service_role explicitly.
 - SELFTEST_ON_BOOT=1 makes every deploy file a demo note and spend 0.05 test USDC; keep it 0 except when proving the loop.
 - Wallet keys live in `.env.wallets` (gitignored, TEST ONLY). Never mainnet.
-- SubQ: Ken's key has only `subq-snap-preview` (Snap: router + note audit). SubQ 1.1 Small (long-context language) is
-  early access and not on the key; when it is, it comes back as a new tier, not as revived chat code (removed 2026-10-20).
+- SubQ: Ken's key has only `subq-snap-preview` (Snap: router + note audit). The SubQ chat client (`src/subq/chat.ts`,
+  `SUBQ_CHAT_MODEL`) is kept UNWIRED on purpose (Ken 2026-10-20): its intended job is synthesizing filed notes into
+  bottleneck reports with SubQ 1.1 Small (early access, not on the key yet). Turning it on = set `SUBQ_CHAT_MODEL`
+  (adds the `subq-chat` diag) and wire the report job. Chat JSON mode is strict `json_schema`.
 - `src/runtime/executors.ts`, `fetch.ts`, `mcp-client.ts` are no longer used by the pipeline (decide-only). They stay
   until Ken decides whether to delete them; tests still cover them.
 - Inkbox `verifyWebhook` checks only the HMAC (no timestamp window) and THROWS on a wrong-length signature: enforce

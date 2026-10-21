@@ -1,14 +1,22 @@
 // Stream B: the SubQ client. Snap (Decisions API) is the router (agent_run's tool decisions) and the note auditor.
 // Side-effect free: nothing is fetched or read until a method or diag runs. No SUBQ_API_KEY -> everything null.
-// SubQ 1.1 Small (long-context language) may join later as a language tier; it is not on the key yet.
+// The chat client (./chat.ts) is built by nothing here on purpose: no runtime job uses it. Its intended job is
+// synthesizing filed notes into bottleneck reports once the key has SubQ 1.1 Small (set SUBQ_CHAT_MODEL); setting
+// SUBQ_CHAT_MODEL also adds the "subq-chat" diag, so turning it on is a config change.
 import type { NoteAuditor, ProviderDiag, Router } from "../runtime/types.js";
 import {
-  DEFAULT_BASE_URL, DEFAULT_SNAP_MODEL, EXCERPT_CHARS, SubqError, noulOf, choiceOf, parseModels, redact, scoreLevelOf, subqRequest,
-  type SubqConfig,
+  DEFAULT_BASE_URL, DEFAULT_CHAT_MODEL, DEFAULT_REASONING_EFFORT, DEFAULT_SNAP_MODEL, EXCERPT_CHARS, REASONING_EFFORTS, SubqError, noulOf,
+  choiceOf, parseModels, redact, scoreLevelOf, subqRequest, type JsonSchemaFormat, type ReasoningEffort, type SubqConfig,
 } from "./wire.js";
 import { SnapClient, createAuditor, createRouter, type AuditMode } from "./snap.js";
+import { ChatClient, extractJson } from "./chat.js";
 
-export { SnapClient };
+const DIAG_CHAT_FORMAT: JsonSchemaFormat = {
+  name: "diag_ok",
+  schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false },
+};
+
+export { SnapClient, ChatClient };
 
 export interface Subq {
   router: Router | null;
@@ -37,6 +45,14 @@ export function baseUrlOf(v: string | undefined): string {
   return DEFAULT_BASE_URL;
 }
 
+/** SUBQ_REASONING_EFFORT: a documented value (none|minimal|low|medium|high|xhigh|max) is sent as chat
+ * `reasoning_effort`; "off"/"omit"/"unset"/"false"/"0" sends none at all; unset or anything else = "low". */
+export function reasoningEffortOf(v: string | undefined): ReasoningEffort | null {
+  const m = (v ?? "").trim().toLowerCase();
+  if (["off", "omit", "unset", "false", "0"].includes(m)) return null;
+  return (REASONING_EFFORTS as readonly string[]).includes(m) ? (m as ReasoningEffort) : DEFAULT_REASONING_EFFORT;
+}
+
 export function subqConfig(env: NodeJS.ProcessEnv): SubqConfig | null {
   const apiKey = env.SUBQ_API_KEY?.trim();
   if (!apiKey) return null;
@@ -44,6 +60,8 @@ export function subqConfig(env: NodeJS.ProcessEnv): SubqConfig | null {
     apiKey,
     baseUrl: baseUrlOf(env.SUBQ_BASE_URL),
     snapModel: env.SUBQ_SNAP_MODEL?.trim() || DEFAULT_SNAP_MODEL,
+    chatModel: env.SUBQ_CHAT_MODEL?.trim() || DEFAULT_CHAT_MODEL,
+    reasoningEffort: reasoningEffortOf(env.SUBQ_REASONING_EFFORT),
   };
 }
 
@@ -55,7 +73,7 @@ export function createSubq(env: NodeJS.ProcessEnv): Subq {
   return {
     router: createRouter(snap),
     auditor: mode === "off" ? null : createAuditor(snap, { mode }),
-    diags: createDiags(cfg),
+    diags: createDiags(cfg, { chat: Boolean(env.SUBQ_CHAT_MODEL?.trim()) }),
   };
 }
 
@@ -82,13 +100,16 @@ function diag(name: string, cfg: SubqConfig, run: () => Promise<{ ok: boolean; s
   };
 }
 
-export function createDiags(cfg: SubqConfig): ProviderDiag[] {
+/** `chat`: also list the chat model in subq-models and probe it (only when SUBQ_CHAT_MODEL is set: the chat client is
+ * unwired, and the key has no chat model yet, so probing it by default would only show a red diag). */
+export function createDiags(cfg: SubqConfig, opts: { chat?: boolean } = {}): ProviderDiag[] {
   const snap = new SnapClient(cfg);
+  const chat = new ChatClient(cfg);
   return [
     diag("subq-models", cfg, async () => {
       const res = await subqRequest(cfg, { method: "GET", path: "/models", timeoutMs: DIAG_TIMEOUT_MS });
       const ids = parseModels(res.json);
-      const missing = [cfg.snapModel].filter((m) => !ids.includes(m));
+      const missing = [cfg.snapModel, ...(opts.chat ? [cfg.chatModel] : [])].filter((m) => !ids.includes(m));
       // Model availability is per key (SubQ docs): a configured model missing from the list is a red flag, not ok.
       return {
         ok: ids.length > 0 && missing.length === 0,
@@ -118,5 +139,24 @@ export function createDiags(cfg: SubqConfig): ProviderDiag[] {
       const level = scoreLevelOf(r.answers.severity, levels);
       return { ok: choice !== null && level !== null, summary: `choice=${choice ?? "unparsed"} severity=${level ?? "unparsed"}/3`, raw: r.raw };
     }),
+    // JSON mode as a job would use it: response_format json_schema (strict) + reasoning_effort. The summary says which
+    // of them the server took; a refusal is dropped and its raw excerpt shown.
+    ...(opts.chat ? [diag("subq-chat", cfg, async () => {
+      const r = await chat.complete(
+        [{ role: "user", content: 'Reply with exactly this JSON object and nothing else: {"ok": true}' }],
+        { schema: DIAG_CHAT_FORMAT, timeoutMs: DIAG_TIMEOUT_MS, maxTokens: 200 },
+      );
+      let parsed = "unparsed";
+      try {
+        parsed = JSON.stringify(extractJson(r.text)).slice(0, 40);
+      } catch { /* reported as unparsed */ }
+      const dropped = r.dropped.map((d) => ` | dropped ${d.feature} (http ${d.status}): ${d.excerpt.slice(0, 200)}`).join("");
+      return {
+        ok: r.text.trim().length > 0,
+        summary: `${cfg.chatModel} said ${JSON.stringify(r.text.slice(0, 80))} json=${parsed} finish=${r.finish_reason ?? "?"} ` +
+          `response_format=${r.schema ? "json_schema" : "none"} reasoning_effort=${r.reasoning_effort ?? "none"} usage=${JSON.stringify(r.usage)}${dropped}`,
+        raw: r.raw,
+      };
+    })] : []),
   ];
 }

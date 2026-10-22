@@ -1,5 +1,11 @@
 # Handoff
 
+## 2026-10-22: Snap is the only model until further notice; next language model is SubQ-Preview
+- SubQ 1.1 Small is off the plan for now. SubQ-Preview (`subq-preview`, a language model, distinct from Snap's
+  `subq-snap-preview` decision model) is expected before it, so it is the next candidate for the language job
+  (synthesizing filed notes into bottleneck reports). Neither is on our key; Snap is the only SubQ model we have.
+- PR #14's parking reason was "Ken's SubQ 1.1 Small review"; that review is off, so whether `agent_run` stays is Ken's call.
+
 ## 2026-10-20: reframe off "Waze for agents" + Manufact tool docs (branch `claude/mcp-leaderboard-docs-5cc13e`)
 - **Framing (Ken):** title "Aze: the bottleneck map for AI agents"; hero "Every task, agents hit walls built for humans.
   Aze maps them so they can be fixed."; three lines "Show humans where AI workflows break. Better agent output through

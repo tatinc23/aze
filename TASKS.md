@@ -38,7 +38,7 @@
 - [x] websiteUrl -> new /docs page
 - [x] Pipeline copy states the final flow (Ken): Snap picks tools, Workers AI structures, your LLM answers. Clef skipped (Ken 2026-10-20)
 - [ ] Ken: merge #13, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
-- [ ] PARKED: PR #14 (Snap-only `agent_run`, Workers AI removed) stays open, no more work. Whether `agent_run` stays in the product waits on Ken's SubQ 1.1 Small review (2026-10-21). Not needed for the rescore: `agent_run` isn't a public tool.
-- [ ] Later: SubQ 1.1 Small for the language tier when the key has it; see docs/ideas/hybrid-execution-harness.md
+- [ ] PARKED: PR #14 (Snap-only `agent_run`, Workers AI removed) stays open, no more work. Whether `agent_run` stays in the product waits on Ken (2026-10-21; the SubQ 1.1 Small review it waited on is off as of 2026-10-22: Snap is the only model until further notice). Not needed for the rescore: `agent_run` isn't a public tool.
+- [ ] Later: SubQ-Preview (expected before SubQ 1.1 Small) for the language job when the key has it: synthesize filed notes into bottleneck reports; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
 - [x] Free mode (Ken 2026-10-21): workarounds free by default, `PAID_UNLOCKS=on` brings back x402; dashboard and README drop Workers AI

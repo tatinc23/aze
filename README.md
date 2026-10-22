@@ -22,7 +22,7 @@ Aze is an MCP server. An agent adds it in one line. Before it acts, the agent ch
 Every note is about a public service and gets a category and a severity: auth, signup, docs, rate-limit, pricing, errors, schema, latency, availability, sdk or payments. Together the notes form a cross-vendor record of the bottlenecks that human-made infrastructure creates for agents. One vendor only sees its own logs. Aze sees the pattern across all of them.
 
 **2. Better agent output through smarter tool calls.**
-Before using a tool, an agent gets a free advisory: known issues, how many agents hit each one, and whether a workaround exists. Inside Aze's own runtime, a small decision model (SubQ Snap) picks the right tool for each task with a yes/no per tool. Known issues are passed into the facts the answer is written from.
+Before using a tool, an agent gets a free advisory: known issues, how many agents hit each one, and whether a workaround exists. With `agent_run`, an agent sends its task and its candidate tools; a small decision model (SubQ Snap) scores every tool for the task, and the known issues for the chosen tools come back with the decision.
 
 **3. Less LLM token spend.**
 - An agent reads a one-line warning instead of discovering the wall by trial and error.
@@ -69,10 +69,10 @@ Check the map → Snap picks tools → your LLM runs them and answers → fricti
 |---|---|---|
 | Check the map | Aze (the `notes_query` lookup) | Known issues for the service of each candidate tool. |
 | Pick tools | SubQ Snap (`subq-snap-preview`), a decision model that returns probabilities, not prose | Score every candidate tool for the task. Snap also audits each filed note for category and severity. |
-| Run and answer | Your LLM | Call the chosen tools with its own inputs, heed the known issues, and write the answer. |
+| Run and answer | Your LLM | Call the chosen tools with its own inputs, heed the known issues, and write the answer. Aze runs no tools and writes no answers. |
 | Report | Your LLM, through `notes_file` | File what blocked it, so the next agent is warned. |
 
-The plan is two SubQ models working together: Snap for fast typed decisions, and SubQ 1.1 Small for long-context reasoning in language, once it's available to us. Its first job will be synthesizing filed notes into bottleneck reports.
+`agent_run` (operator key) takes the task and the caller's candidate tools, and returns the chosen tools with Snap's probabilities, every tool's score, the known issues that apply, and a one-line next step. Snap is the only model Aze runs today. The plan is two SubQ models working together: Snap for fast typed decisions, and a SubQ language model (SubQ-Preview, once it's available to us) for long-context reasoning in language. Its first job will be synthesizing filed notes into bottleneck reports.
 
 ## Evidence (October 18, 2026, test mode)
 
@@ -82,9 +82,10 @@ The plan is two SubQ models working together: Snap for fast typed decisions, and
 ## Not yet
 
 - **Measured token savings.** The mechanisms above are live, but we haven't yet measured end-to-end savings against agents that don't check Aze. That's the next experiment.
-- **Known issues steering routing directly.** Today they inform the answer, not the tool choice.
+- **Known issues steering routing directly.** Today they come back next to Snap's pick; Snap doesn't see them when it scores.
 - **Build fixes for the most common bottlenecks the data shows, and offer them to agents and vendors.**
-- **A Stripe card unlock**, and the SubQ chat model for the structure stage.
+- **A Stripe card unlock.**
+- **Bottleneck reports.** SubQ-Preview (when our key has it) will synthesize filed notes into bottleneck reports.
 
 Test mode only: no real money moves.
 

@@ -6,12 +6,13 @@
 // 0-based level index with `legend`/`probabilities` keyed "0".."n-1" (System One score primitive). Parsers still
 // accept variants because nothing here was verified against the live API from this container.
 // Chat is OpenAI-compatible (POST /v1/chat/completions); `store: false` keeps our prompts out of SubQ's storage. JSON
-// mode is `response_format: {type: "json_schema", json_schema: {name, strict: true, schema}}` (Muse M1; strict-schema
-// helpers in ./schema.ts). Errors are `{"detail": {"error_type", "message"}}` (Muse M1); errorDetail reads them.
+// mode is `response_format: {type: "json_schema", json_schema: {name, strict: true, schema}}` (Muse M1). The chat
+// client (./chat.ts) is unwired for now. Errors are `{"detail": {"error_type", "message"}}` (Muse M1); errorDetail reads them.
 import type { Usage } from "../runtime/types.js";
 
 export const DEFAULT_BASE_URL = "https://api.subq.ai/v1";
 export const DEFAULT_SNAP_MODEL = "subq-snap-preview";
+/** Chat model when SUBQ_CHAT_MODEL is unset: SubQ-Preview, the next SubQ language model (not on our key yet). */
 export const DEFAULT_CHAT_MODEL = "subq-preview";
 /** Raw response excerpt length for diag output and errors. */
 export const EXCERPT_CHARS = 500;
@@ -426,7 +427,7 @@ export function scoreLevelOf(a: SnapAnswer | undefined, levels: string[]): numbe
 // ---------- Chat (OpenAI-compatible) ----------
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-/** A strict JSON schema for chat JSON mode. `name` must match ^[a-zA-Z0-9_-]{1,64}$ (see schemaName in ./schema.ts). */
+/** A strict JSON schema for chat JSON mode. `name` must match ^[a-zA-Z0-9_-]{1,64}$. */
 export interface JsonSchemaFormat {
   name: string;
   schema: Record<string, unknown>;

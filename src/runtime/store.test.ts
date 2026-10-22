@@ -50,8 +50,8 @@ describe("MemoryRunStore", () => {
     const s = new MemoryRunStore();
     const a = await s.insertRun(newRun({ swarm_id: "s1" }));
     await s.insertRun(newRun({ swarm_id: "s2" }));
-    await s.finishRun(a.id, { status: "done", notes_filed: ["x", "y"], timings: [{ tier: "render", ms: 100, ok: true }], raw_bytes: 100, distilled_bytes: 25 });
-    expect(await s.runStats("s1")).toMatchObject({ runs: 1, done: 1, notes_filed: 2, avg_ms_by_tier: { render: 100 }, compression_ratio: 0.25 });
+    await s.finishRun(a.id, { status: "done", notes_filed: ["x", "y"], timings: [{ tier: "snap", ms: 100, ok: true }], raw_bytes: 100, distilled_bytes: 25 });
+    expect(await s.runStats("s1")).toMatchObject({ runs: 1, done: 1, notes_filed: 2, avg_ms_by_tier: { snap: 100 }, compression_ratio: 0.25 });
     expect(await s.runStats()).toMatchObject({ runs: 2, done: 1, running: 1 });
   });
 });
@@ -65,20 +65,28 @@ describe("computeRunStats", () => {
 
   it("averages per-run tier sums over runs that have the tier, ignoring failed entries", () => {
     const s = computeRunStats([
-      { ...base, timings: [{ tier: "execute", ms: 100, ok: true }, { tier: "execute", ms: 300, ok: true }, { tier: "snap", ms: 50, ok: true }] },
-      { ...base, timings: [{ tier: "execute", ms: 200, ok: true }, { tier: "snap", ms: 0, ok: false, detail: "router unavailable: fallback" }] },
-      { ...base, status: "failed", timings: [{ tier: "render", ms: 75_000, ok: false }] },
+      { ...base, timings: [{ tier: "notes", ms: 100, ok: true }, { tier: "notes", ms: 300, ok: true }, { tier: "snap", ms: 50, ok: true }] },
+      { ...base, timings: [{ tier: "notes", ms: 200, ok: true }, { tier: "snap", ms: 0, ok: false, detail: "router unavailable" }] },
+      { ...base, status: "failed", timings: [{ tier: "snap", ms: 75_000, ok: false }] },
     ]);
-    expect(s.avg_ms_by_tier).toEqual({ execute: 300, snap: 50 }); // (400 + 200) / 2; failed render excluded
+    expect(s.avg_ms_by_tier).toEqual({ notes: 300, snap: 50 }); // (400 + 200) / 2; failed snap excluded
     expect(s).toMatchObject({ runs: 3, done: 2, failed: 1, running: 0 });
   });
 
   it("sums costs per tier, skipping nulls, and leaves unknown tiers absent", () => {
     const s = computeRunStats([
-      { ...base, cost_micro_usd: { snap: 12.5, distill: null, render: null } },
-      { ...base, cost_micro_usd: { snap: 7.5, distill: 3 } },
+      { ...base, cost_micro_usd: { snap: 12.5 } },
+      { ...base, cost_micro_usd: { snap: 7.5, notes: null } },
+      { ...base, cost_micro_usd: { snap: null } },
     ]);
-    expect(s.cost_micro_usd_by_tier).toEqual({ snap: 20, distill: 3 });
+    expect(s.cost_micro_usd_by_tier).toEqual({ snap: 20 });
+  });
+
+  it("skips the tiers of pre-2026-10-20 runs (args, execute, distill, render)", () => {
+    const legacy = { ...base, timings: [{ tier: "render", ms: 900, ok: true }, { tier: "snap", ms: 40, ok: true }], cost_micro_usd: { render: 9, snap: 1 } } as unknown as typeof base;
+    const s = computeRunStats([legacy]);
+    expect(s.avg_ms_by_tier).toEqual({ snap: 40 });
+    expect(s.cost_micro_usd_by_tier).toEqual({ snap: 1 });
   });
 
   it("compression = sum distilled / sum raw over done runs with both", () => {
@@ -95,10 +103,10 @@ describe("computeRunStats", () => {
   it("counts notes and tolerates malformed rows", () => {
     const s = computeRunStats([
       { ...base, notes_filed: ["a"] },
-      { ...base, notes_filed: null as never, timings: [null, { tier: "bogus", ms: 5, ok: true }, { tier: "args", ms: "40", ok: true }] as never, cost_micro_usd: null as never },
+      { ...base, notes_filed: null as never, timings: [null, { tier: "bogus", ms: 5, ok: true }, { tier: "snap", ms: "40", ok: true }] as never, cost_micro_usd: null as never },
     ]);
     expect(s.notes_filed).toBe(1);
-    expect(s.avg_ms_by_tier).toEqual({ args: 40 });
+    expect(s.avg_ms_by_tier).toEqual({ snap: 40 });
   });
 });
 

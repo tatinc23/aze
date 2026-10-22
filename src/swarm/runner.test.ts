@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AgentContext, Pipeline, RunRecord } from "../runtime/types.js";
-import { DEFAULT_CONCURRENCY, intInRange, SwarmBusyError, SwarmInputError, SwarmRunner } from "./runner.js";
+import type { AgentContext, RunRecord } from "../runtime/types.js";
+import { DEFAULT_CONCURRENCY, intInRange, SwarmBusyError, SwarmInputError, SwarmRunner, type Pipeline } from "./runner.js";
 import type { SwarmTask } from "./tasks.js";
 import { createWallets } from "./wallets.js";
 

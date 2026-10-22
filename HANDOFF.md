@@ -1,5 +1,20 @@
 # Handoff
 
+## 2026-10-22: NEXT SESSION = fix the code
+- **PR #14 is merged** to main (`1d39c9e`, 2026-10-22, on the user's request) and deployed: the live dashboard shows
+  "Check the map → Snap picks tools → your LLM runs them and answers", and `/api/health` returns ok (Supabase store).
+  `agent_run` is decide-only on main now, and Workers AI is gone from the code.
+- **The next session is for fixing the code.** Ask the user which items are in scope first. The known open items:
+  - **Not verified live:** no real `agent_run` has run against Snap yet. It is listed only when `RUNTIME_ACCESS_KEY`
+    is set on Manufact: check that, then run one real call and read the result.
+  - **Unwired code:** `src/runtime/executors.ts`, `fetch.ts`, `mcp-client.ts` (+ tests) are unused by the pipeline.
+    Delete them or keep them (Ken's call).
+  - **Error text:** SubQ errors keep raw response excerpts in `runs.error` and timing details. Public endpoints hide
+    them (`EXCERPT_RE` in `src/web/runtime.ts`), but the push security review suggested storing a fixed error code
+    and keeping the excerpt only for `/admin/diag`.
+  - **Routing:** Snap does not see the advisories when it scores; they come back next to its pick.
+  - **Ops, not code:** delete the unused Manufact env vars listed in the 2026-10-20 entry below.
+
 ## 2026-10-22: Snap is the only model until further notice; next language model is SubQ-Preview
 - SubQ 1.1 Small is off the plan for now. SubQ-Preview (`subq-preview`, a language model, distinct from Snap's
   `subq-snap-preview` decision model) is expected before it, so it is the next candidate for the unwired chat client

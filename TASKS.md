@@ -38,7 +38,7 @@
 - [x] websiteUrl -> new /docs page
 - [x] Pipeline copy states the final flow (Ken): Snap picks tools, Workers AI structures, your LLM answers. Clef skipped (Ken 2026-10-20)
 - [ ] Ken: merge #13, then warm /api/health, re-curl initialize + /docs, and re-run the Manufact scoring
-- [ ] PARKED: PR #14 (Snap-only `agent_run`, Workers AI removed; built on branch `claude/agent-run-decide-only`) stays open, no more work. Whether `agent_run` stays in the product waits on Ken (2026-10-21; the SubQ 1.1 Small review it waited on is off as of 2026-10-22: Snap is the only model until further notice). Not needed for the rescore: `agent_run` isn't a public tool.
+- [x] MERGED 2026-10-22 (`1d39c9e`, deployed): PR #14 (Snap-only `agent_run`, Workers AI removed). Was parked: Whether `agent_run` stays in the product waits on Ken (2026-10-21; the SubQ 1.1 Small review it waited on is off as of 2026-10-22: Snap is the only model until further notice). Not needed for the rescore: `agent_run` isn't a public tool.
 - [ ] Later: SubQ-Preview on the key (expected before SubQ 1.1 Small) -> set SUBQ_CHAT_MODEL=subq-preview, wire the bottleneck-report job; see docs/ideas/hybrid-execution-harness.md
 - [ ] Check whether Manufact has a manual category setting (Data & Analytics); not found in public docs
 - [x] Free mode (Ken 2026-10-21): workarounds free by default, `PAID_UNLOCKS=on` brings back x402; dashboard and README drop Workers AI
@@ -48,7 +48,14 @@
 - [x] Workers AI + the old args/distill/note-writer roles removed; swarm and /admin/run decide-only over the catalog
 - [x] SubQ chat client kept unwired for the next SubQ language model (now SubQ-Preview, 2026-10-22): job = synthesize filed notes into bottleneck reports
 - [x] Dashboard "How a run works" + economics (map check, Snap) and README runtime table / token-savings copy updated
-- [ ] Ken: merge PR #13; this PR is parked (see Session 4); after it merges, delete the unused env vars listed in HANDOFF.md
+- [x] PR #14 merged 2026-10-22. [ ] Delete the unused Manufact env vars listed in HANDOFF.md
 - [ ] Ken: delete or keep `src/runtime/executors.ts` / `fetch.ts` / `mcp-client.ts` (unwired now)
 - [ ] After deploy: one real agent_run against live Snap (needs RUNTIME_ACCESS_KEY), then rerun the Manufact scoring
 - [ ] Later: let Snap see the advisories when it scores (today they come back next to the pick)
+
+## Session 6 (next): fix the code
+Ask the user which items are in scope first; details in the 2026-10-22 HANDOFF entry.
+- [ ] One real `agent_run` against live Snap (needs `RUNTIME_ACCESS_KEY` on Manufact)
+- [ ] Delete or keep the unwired `executors.ts` / `fetch.ts` / `mcp-client.ts` (Ken's call)
+- [ ] Store a fixed error code instead of raw SubQ response excerpts in run errors (security review suggestion)
+- [ ] Let Snap see the advisories when it scores

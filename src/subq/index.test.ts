@@ -22,8 +22,8 @@ describe("createSubq", () => {
     const s = createSubq({ SUBQ_API_KEY: KEY });
     expect(s.router && s.auditor).toBeTruthy();
     expect(s.diags.map((d) => d.name)).toEqual(["subq-models", "subq-snap", "subq-snap-typed"]);
-    // The chat client is unwired; setting SUBQ_CHAT_MODEL (SubQ 1.1 Small, later) adds only its diag, no job.
-    const withChat = createSubq({ SUBQ_API_KEY: KEY, SUBQ_CHAT_MODEL: "subq-small" });
+    // The chat client is unwired; setting SUBQ_CHAT_MODEL (SubQ-Preview, once the key has it) adds only its diag, no job.
+    const withChat = createSubq({ SUBQ_API_KEY: KEY, SUBQ_CHAT_MODEL: "subq-preview" });
     expect(withChat.diags.map((d) => d.name)).toEqual(["subq-models", "subq-snap", "subq-snap-typed", "subq-chat"]);
     expect(Object.keys(withChat).sort()).toEqual(["auditor", "diags", "router"]);
     expect(fetchMock).not.toHaveBeenCalled();

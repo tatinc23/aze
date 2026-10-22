@@ -1,7 +1,8 @@
-// SubQ chat client (OpenAI-compatible POST /v1/chat/completions). UNWIRED ON PURPOSE (Ken, 2026-10-20): no runtime
-// job calls it. Its intended job is synthesizing filed notes into bottleneck reports. It turns on when the SubQ key
-// gets SubQ 1.1 Small: set SUBQ_CHAT_MODEL to that model id (then /admin/diag also probes it as "subq-chat"), and wire
-// the report job to ChatClient + askJson. It does not fill tool inputs, distill pages, answer tasks or draft notes.
+// SubQ chat client (OpenAI-compatible POST /v1/chat/completions). UNWIRED ON PURPOSE (2026-10-20): no runtime job
+// calls it, and Snap is the only SubQ model on our key until further notice. Its intended job is synthesizing filed
+// notes into bottleneck reports. The next SubQ language model is SubQ-Preview (`subq-preview`, expected before SubQ
+// 1.1 Small, 2026-10-22). When the key has it: set SUBQ_CHAT_MODEL=subq-preview (then /admin/diag also probes it as
+// "subq-chat"), and wire the report job to ChatClient + askJson. It does not fill tool inputs, distill pages, answer tasks or draft notes.
 // JSON mode is response_format json_schema with a strict schema (Muse M1). If the server rejects a schema (400/422
 // naming response_format/json_schema) that schema name stops being sent, and the same goes for reasoning_effort.
 // Replies are extracted robustly: think blocks and code fences stripped, the outermost {...} taken, one corrective retry.

@@ -12,7 +12,7 @@ import type { Usage } from "../runtime/types.js";
 
 export const DEFAULT_BASE_URL = "https://api.subq.ai/v1";
 export const DEFAULT_SNAP_MODEL = "subq-snap-preview";
-/** Chat model when SUBQ_CHAT_MODEL is unset. Set SUBQ_CHAT_MODEL to the SubQ 1.1 Small id once the key has it. */
+/** Chat model when SUBQ_CHAT_MODEL is unset: SubQ-Preview, the next SubQ language model (not on our key yet). */
 export const DEFAULT_CHAT_MODEL = "subq-preview";
 /** Raw response excerpt length for diag output and errors. */
 export const EXCERPT_CHARS = 500;

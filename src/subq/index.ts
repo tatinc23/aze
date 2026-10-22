@@ -1,8 +1,8 @@
 // Stream B: the SubQ client. Snap (Decisions API) is the router (agent_run's tool decisions) and the note auditor.
 // Side-effect free: nothing is fetched or read until a method or diag runs. No SUBQ_API_KEY -> everything null.
 // The chat client (./chat.ts) is built by nothing here on purpose: no runtime job uses it. Its intended job is
-// synthesizing filed notes into bottleneck reports once the key has SubQ 1.1 Small (set SUBQ_CHAT_MODEL); setting
-// SUBQ_CHAT_MODEL also adds the "subq-chat" diag, so turning it on is a config change.
+// synthesizing filed notes into bottleneck reports once the key has SubQ-Preview (set SUBQ_CHAT_MODEL=subq-preview);
+// setting SUBQ_CHAT_MODEL also adds the "subq-chat" diag, so turning it on is a config change.
 import type { NoteAuditor, ProviderDiag, Router } from "../runtime/types.js";
 import {
   DEFAULT_BASE_URL, DEFAULT_CHAT_MODEL, DEFAULT_REASONING_EFFORT, DEFAULT_SNAP_MODEL, EXCERPT_CHARS, REASONING_EFFORTS, SubqError, noulOf,

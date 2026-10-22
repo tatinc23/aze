@@ -1,5 +1,11 @@
 # Handoff
 
+## 2026-10-22: Snap is the only model until further notice; next language model is SubQ-Preview
+- SubQ 1.1 Small is off the plan for now. SubQ-Preview (`subq-preview`, a language model, distinct from Snap's
+  `subq-snap-preview` decision model) is expected before it, so it is the next candidate for the unwired chat client
+  (`SUBQ_CHAT_MODEL=subq-preview`, already the default id). Neither is on the key; Snap stays the only model.
+- PR #14's parking reason was "Ken's SubQ 1.1 Small review"; that review is off, so whether `agent_run` stays is Ken's call.
+
 ## 2026-10-20: agent_run is decide-only; Workers AI removed (branch `claude/agent-run-decide-only`, on top of PR #13)
 - **What shipped (Ken's 2026-10-20 call):** `agent_run` takes `task` + the caller's `tools` (1-20, each `name`,
   `description`, optional `surface`) + optional `surface` + `access_key`. Flow: map check (the `notes_query` lookup,
@@ -11,7 +17,7 @@
 - **Removed:** `src/llm/*` (Workers AI chat, renderer, second vote), the old args/distill/note-writer roles, `schema.ts`,
   `ensemble.ts`, `ARGS_BACKEND` / `SYSTEM_ONE_CF*` / `RENDER_*` / `SUBQ_CHAT_PRICE_*` handling.
 - **Kept unwired (Ken):** the SubQ chat client (`src/subq/chat.ts`: ChatClient, askJson, extractJson; `SUBQ_CHAT_MODEL`,
-  `SUBQ_REASONING_EFFORT`). Intended job: synthesizing filed notes into bottleneck reports with SubQ 1.1 Small. Setting
+  `SUBQ_REASONING_EFFORT`). Intended job: synthesizing filed notes into bottleneck reports with SubQ-Preview. Setting
   `SUBQ_CHAT_MODEL` adds the `subq-chat` diag; nothing calls the client yet. `grep -ri "workers ai\|workers-ai" src` is empty. The Snap note audit is unchanged.
 - **Swarm + POST /admin/run** use the same decide-only pipeline with the warehouse catalog as candidates (they bring no
   tools). They no longer fetch pages, answer or file notes, so the swarm is now a routing demo.
@@ -24,8 +30,8 @@
   `distilled_bytes` null. Old rows keep their args/render data; readers skip unknown tiers.
 - **Env on Manufact now unused (safe to delete after merge):** `ARGS_BACKEND`, `SYSTEM_ONE_CF`, `SYSTEM_ONE_CF_MODEL`,
   `RENDER_MODEL`, `RENDER_PRICE_IN_PER_M`, `RENDER_PRICE_OUT_PER_M`, `SUBQ_CHAT_PRICE_*`, `CF_API_TOKEN`/`CF_ACCOUNT_ID`
-  (keep `SUBQ_CHAT_MODEL` / `SUBQ_REASONING_EFFORT` only if they will point at SubQ 1.1 Small; an old `subq-preview`
-  value turns on a red `subq-chat` diag) (unless something outside this repo uses them).
+  (unset `SUBQ_CHAT_MODEL` until the key has SubQ-Preview: any value turns on the `subq-chat` diag, which is red
+  while the key lacks the model) (unless something outside this repo uses them).
 - **Not verified live:** no SubQ key was reachable from this session, so the PR's sample uses a fixed-score stand-in
   (`SAMPLE_FAKE_SNAP=1 npx tsx scripts/agent-run-sample.ts`). After merge: set RUNTIME_ACCESS_KEY if it is not set, warm
   /api/health, run one real agent_run, then rescore.

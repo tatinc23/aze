@@ -102,7 +102,7 @@ body.lean .how,body.lean .mid{display:none}
 .legend b{color:var(--ink)}
 .note{margin:8px 0 0;font-size:13px;color:var(--muted)}
 /* Economics */
-.ecosum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:0;list-style:none}
+.ecosum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:0;list-style:none}
 .ecosum li{background:var(--page);border:1px solid var(--border);border-radius:10px;padding:6px 10px;min-width:0}
 .ecosum .label{font-size:13px;color:var(--ink-2);font-weight:550}
 .ecosum .v{font-size:clamp(20px,1.6vw,28px);font-weight:650;line-height:1.15;overflow-wrap:anywhere}
@@ -250,10 +250,11 @@ const JS = `
     unknown: ['Unknown', '?']
   };
   var ORDER = ['done', 'failed', 'running', 'queued', 'stopped'];
-  // Aze's own steps. Filling inputs, running tools and answering happen in the caller's LLM, so they get no row.
+  // Aze's two steps. Running the tools and answering happen in the caller's own LLM, so they have no row here. The map
+  // check is a store read, not a model call, so it has no price to know.
   var TIERS = [
-    ['notes', 'Map check + notes'],
-    ['snap', 'Snap picks tools']
+    ['notes', 'Check the map', true],
+    ['snap', 'Snap picks tools', false]
   ];
   function stOf(s){ return typeof s === 'string' && s !== 'unknown' && has(ST, s) ? s : 'unknown'; }
   function dur(v){
@@ -328,7 +329,8 @@ const JS = `
     var known = 0, anyKnown = false, anyUnknown = false;
     var rows = TIERS.map(function(t){
       var k = t[0], timed = val(avg, k), c;
-      if (val(cost, k)){ known += Number(cost[k]); anyKnown = true; c = '<td class="n">' + esc(usd(cost[k])) + '</td>'; }
+      if (t[2]) c = '<td class="n">no model call</td>';
+      else if (val(cost, k)){ known += Number(cost[k]); anyKnown = true; c = '<td class="n">' + esc(usd(cost[k])) + '</td>'; }
       else if (timed){ anyUnknown = true; c = '<td class="n unk">price unknown</td>'; }
       else c = '<td class="n nil">none yet</td>';
       return '<tr><th scope="row">' + esc(t[1]) + '</th>' +
@@ -338,7 +340,8 @@ const JS = `
       ['Runs done', num(st.done), ''],
       // "not finished", not "still running": a run cut off by a restart stays unfinished in the log forever.
       ['Failed', num(st.failed), Number(st.running) > 0 ? num(st.running) + ' not finished' : ''],
-      ['Notes filed', num(st.notes_filed), 'from friction']
+      ['Notes filed', num(st.notes_filed), 'from friction'],
+      ['Snap cost', val(cost, 'snap') ? usd(Number(cost.snap) / runs) : 'none yet', val(cost, 'snap') ? 'per run, on average' : '']
     ];
     box.innerHTML = '<ul class="ecosum">' + tiles.map(function(x){
         return '<li><div class="label">' + esc(x[0]) + '</div><div class="v">' + esc(x[1]) + '</div>' + (x[2] ? '<div class="sub">' + esc(x[2]) + '</div>' : '') + '</li>';
@@ -466,12 +469,12 @@ ${siteHeader("dashboard")}
     <div class="mid">
       <section class="panel" aria-labelledby="swarm-h">
         <h2 id="swarm-h">Agent swarm</h2>
-        <p class="hint">Each square is one agent doing one real task. Color and symbol both show its status.</p>
+        <p class="hint">Each square is one agent's task: Aze checks the map and Snap picks its tools. Color and symbol both show its status.</p>
         <div id="swarm"></div>
       </section>
       <section class="panel" aria-labelledby="eco-h">
         <h2 id="eco-h">Economics</h2>
-        <p class="hint">Average time (successful calls) and known cost (US dollars) per step, over all runs.</p>
+        <p class="hint">Average time (successful calls) and known cost (US dollars) of Aze's steps, over all runs.</p>
         <div id="eco"></div>
       </section>
     </div>

@@ -63,6 +63,7 @@ describe("Snap router", () => {
   it("skips inactive assets and makes no call when nothing is left", async () => {
     const calls = stubFetch(() => json({ answers: { t0: { noul: 0.5 } } }));
     const router = createRouter(new SnapClient(cfg));
+    expect(router.label).toBe(`SubQ Snap (${cfg.snapModel})`); // agent_run's decided_by
     expect(await router.route("t", [asset(1, { active: false })])).toEqual({ choices: [], ms: 0, usage: { input_tokens: 0, output_tokens: 0 } });
     expect(calls).toHaveLength(0);
     const r = await router.route("t", [asset(1, { active: false }), asset(2)]);

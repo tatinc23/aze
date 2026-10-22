@@ -1,6 +1,7 @@
-// Frozen contracts for the Agent Warehouse runtime (S0). Each stream implements one side of these; change them only
-// together with every implementer. The pipeline: identity → Snap route → args → execute → distill → render → notes.
-import type { Attestation, CleanNote, Match, NoteAudit } from "../types.js";
+// Contracts for the Aze runtime. Change them only together with every implementer. Since 2026-10-20 a run is
+// decide-only: check the map → SubQ Snap picks tools → the decisions and advisories go back to the caller, whose own
+// LLM runs the tools and writes the answer. Aze does not fill inputs, run tools, distill, answer or draft notes.
+import type { Advisory, Attestation, CleanNote, Match, NoteAudit } from "../types.js";
 
 export type { NoteAudit };
 
@@ -34,27 +35,20 @@ export interface Usage {
   output_tokens: number;
 }
 
-/** Tier 1: System One models (SubQ Snap, plus Workers AI when configured) decide which assets a task needs.
- * `detail` (optional) is shown in the run's snap timing, e.g. each model's vote. */
+/** A tool Snap may pick: the caller's own tools (agent_run) or warehouse catalog assets (swarm, /admin/run). */
+export interface Candidate {
+  id: string; // tool name
+  description: string; // one short sentence; Snap reads it
+  active?: boolean;
+  /** Public service the tool belongs to; its map check (notes_query) runs before Snap decides. */
+  surface?: string | null;
+}
+
+/** SubQ Snap decides which candidate tools a task needs, with a probability for each. `detail` (optional) is shown
+ * in the run's snap timing; `label` names the deciding model in agent_run's `decided_by`. */
 export interface Router {
-  route(task: string, assets: Asset[]): Promise<{ choices: Array<{ asset_id: string; p: number }>; ms: number; usage: Usage; detail?: string }>;
-}
-
-/** SubQ generative model: tool arguments, compressed facts, and friction notes. */
-export interface ArgFiller {
-  fill(task: string, asset: Asset, prior: StepResult[]): Promise<{ args: Record<string, unknown>; ms: number; usage: Usage }>;
-}
-export interface Distiller {
-  distill(task: string, raw: string): Promise<{ facts: string; ms: number; usage: Usage }>;
-}
-export interface NoteWriter {
-  /** Turn a failed/slow step into a field-note input in classes, never names. Returns null if nothing worth filing. */
-  write(task: string, surface: string, step: StepResult): Promise<{ note: Record<string, unknown> | null; ms: number; usage: Usage }>;
-}
-
-/** Tier 3: Workers AI writes the final answer from distilled facts only. */
-export interface Renderer {
-  render(task: string, facts: string): Promise<{ text: string; model: string; fallback_used: boolean; ms: number; usage: Usage }>;
+  readonly label?: string;
+  route(task: string, candidates: Candidate[]): Promise<{ choices: Array<{ asset_id: string; p: number }>; ms: number; usage: Usage; detail?: string }>;
 }
 
 /** Snap audit of a note that already passed the rule-based gate. Must never throw; fail open with status "skipped". */
@@ -62,6 +56,7 @@ export interface NoteAuditor {
   audit(note: CleanNote, similar: Match[]): Promise<NoteAudit>;
 }
 
+/** Executor contracts (unused by the decide-only pipeline; kept with src/runtime/executors.ts until Ken decides). */
 export interface StepResult {
   asset_id: string;
   ok: boolean;
@@ -81,7 +76,9 @@ export interface ProviderDiag {
   check(): Promise<{ ok: boolean; detail: string; ms: number }>;
 }
 
-export type Tier = "snap" | "args" | "execute" | "distill" | "render" | "notes";
+/** "notes" = the map check (notes_query lookup); "snap" = the routing decision. Runs before 2026-10-20 also hold
+ * args/execute/distill/render timings; readers skip tiers they do not know. */
+export type Tier = "notes" | "snap";
 
 export interface TierTiming {
   tier: Tier;
@@ -103,10 +100,10 @@ export interface RunRecord {
   attestation: Attestation;
   assets: Array<{ asset_id: string; p: number }>;
   timings: TierTiming[];
-  raw_bytes: number | null;
-  distilled_bytes: number | null;
+  raw_bytes: number | null; // legacy column (runs that distilled); null for decide-only runs
+  distilled_bytes: number | null; // legacy column; null for decide-only runs
   cost_micro_usd: Partial<Record<Tier, number | null>>; // null = price unknown; never invented
-  answer: string | null;
+  answer: string | null; // legacy column (runs that rendered an answer); null for decide-only runs
   notes_filed: string[]; // note ids
   error: string | null;
   finished_at: string | null;
@@ -122,7 +119,7 @@ export interface RunStats {
   notes_filed: number;
   avg_ms_by_tier: Partial<Record<Tier, number>>;
   cost_micro_usd_by_tier: Partial<Record<Tier, number>>;
-  compression_ratio: number | null; // distilled_bytes / raw_bytes over finished runs
+  compression_ratio: number | null; // legacy: distilled_bytes / raw_bytes over runs that distilled (null since 2026-10-20)
 }
 
 export interface RunStore {
@@ -134,9 +131,28 @@ export interface RunStore {
   runStats(swarm_id?: string): Promise<RunStats>;
 }
 
-/** The whole pipeline. */
+/** A known issue that applies to a candidate tool, from the map check of its service. */
+export interface ToolAdvisory extends Advisory {
+  surface: string;
+}
+
+/** What a run decided, returned to the caller (not stored: the run log keeps only the chosen tools and timings). */
+export interface Decision {
+  /** The router's label, e.g. "SubQ Snap (subq-snap-preview)"; null when it was unavailable or failed (nothing ranked). */
+  decided_by: string | null;
+  /** Every candidate Snap scored, highest p first. */
+  scores: Array<{ tool: string; p: number }>;
+  /** Known issues for the chosen tools (or, when nothing could be ranked, for every candidate), deduped by note_id. */
+  advisories: ToolAdvisory[];
+  /** One line for the caller's LLM: run the tools yourself, then file friction with notes_file. */
+  next: string;
+}
+
+export type RunResult = RunRecord & { decision: Decision };
+
+/** The whole pipeline. `tools` are the caller's candidates; without them the warehouse catalog is used. */
 export interface Pipeline {
-  run(task: string, surface: string | null, ctx: AgentContext): Promise<RunRecord>;
+  run(task: string, surface: string | null, ctx: AgentContext, tools?: Candidate[]): Promise<RunResult>;
 }
 
 /** A settled x402 unlock, as recorded in our ledger. */
@@ -156,14 +172,7 @@ export interface PaymentsPlugin {
 export interface RuntimeDeps {
   runs: RunStore;
   router: Router | null;
-  args: ArgFiller | null;
-  distiller: Distiller | null;
-  noteWriter: NoteWriter | null;
-  renderer: Renderer | null;
   auditor: NoteAuditor | null;
-  executors: Partial<Record<ExecutorKind, Executor>>;
   diags: ProviderDiag[];
   payments: PaymentsPlugin | null;
-  /** Which chat model backs args / distiller / notes (ARGS_BACKEND); shown on the RUNTIME providers line. */
-  chatBackend?: "workers-ai" | "subq";
 }

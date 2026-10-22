@@ -2,9 +2,9 @@
 import { MCPServer } from "mcp-use";
 import { z } from "zod";
 import { KINDS, DEFAULT_SETTINGS, type NoteAudit, type Store } from "./types.js";
-import { gate, normalizeSurface, errorClass } from "./gate/index.js";
+import { gate, normalizeSurface } from "./gate/index.js";
 import { attest } from "./identity/index.js";
-import { buildEnvelope, formatUsdc } from "./advise/index.js";
+import { checkMap, formatUsdc } from "./advise/index.js";
 import { split } from "./pay/split.js";
 import type { createPaywall } from "./pay/index.js";
 import { registerWeb } from "./web/index.js";
@@ -225,17 +225,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ surface, tool, error }: { surface: string; tool?: string; error?: string }) => {
-      const key = normalizeSurface(surface);
-      const settings = await settingsOf();
-      try {
-        const matches = await store.findMatches({ surface: key, tool: tool?.trim() || null, error_class: error ? errorClass(error) : null }, 5);
-        const score = (await store.scores(key))[0] ?? null;
-        await store.logQuery({ surface: key, tool: tool?.trim() || null, matched: matches.length });
-        return json(buildEnvelope(key, matches, settings, score, { free }));
-      } catch (e) {
-        console.error("notes_query degraded:", (e as Error).message);
-        return json({ ...buildEnvelope(key, [], settings, null, { free }), degraded: true });
-      }
+      return json(await checkMap(store, await settingsOf(), surface, { tool, error, free }));
     },
   );
 
@@ -291,7 +281,7 @@ export function createServer(deps: { store: Store; paywall: Paywall | null; base
   );
 
   // agent_run spends provider credits and only works with an operator key, so it is listed only when one is set.
-  if (runtime && process.env.RUNTIME_ACCESS_KEY?.trim()) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl });
+  if (runtime && process.env.RUNTIME_ACCESS_KEY?.trim()) registerRuntimeTools(server, { store, runtime, baseUrl: deps.baseUrl, free });
   runtime?.payments?.registerTools?.(server, { store });
   registerWeb((server as any).app, { store, adminKey: deps.adminKey, runtime, baseUrl: deps.baseUrl, free });
   // Inkbox A2A (only when INKBOX_SIGNING_KEY + INKBOX_WEBHOOK_TOKEN are set): check/file over Aze's own Inkbox identity.

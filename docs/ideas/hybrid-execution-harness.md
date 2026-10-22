@@ -10,9 +10,8 @@ building on them.
   - a language model that reasons over long context and can write.
 - **Both should be SubQ:**
   - **SubQ Snap** for the typed decisions. It's live on our key as `subq-snap-preview`.
-  - **A SubQ language model** for the long-context language work: SubQ-Preview (`subq-preview`) first, expected
-    before SubQ 1.1 Small (2026-10-22). Neither is on our key yet.
-- **For now: Snap only, until further notice.**
+  - **A SubQ language model** for the long-context language work: SubQ-Preview (`subq-preview`) first, expected before SubQ 1.1 Small (2026-10-22). Neither is on our key yet; Snap is the only model until further notice.
+- **For now: Snap only.**
 - **Clef is skipped.** Cloudflare's Clef / Clef-flash / Clef-Omni are decision models, so they would duplicate Snap,
   not add language. Clairic, their extraction model, doesn't fit Aze either.
 
@@ -44,4 +43,4 @@ past code.
 
 ## Open questions
 - Should Aze ship the whole harness, or just be the enrichment and decision service other harnesses call?
-- SubQ-Preview's first job is synthesizing filed notes into bottleneck reports (Ken, 2026-10-20). Which other jobs, if any, should it do, and at what cost?
+- Workers AI (args, distill, note drafts) was removed 2026-10-20. The SubQ language model's intended job (Ken, 2026-10-20) is synthesizing filed notes into bottleneck reports; the SubQ chat client (`src/subq/chat.ts`) is kept unwired for SubQ-Preview. Which other jobs, if any, should it do, and at what cost?

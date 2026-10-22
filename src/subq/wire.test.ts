@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  DEFAULT_NOUL_CRITERIA, RETRY, SubqError, buildChatRequest, buildSnapRequest, choiceOf, errorDetail, noulOf, optionCodeIndex, parseChatResponse,
+  DEFAULT_NOUL_CRITERIA, RETRY, SubqError, buildSnapRequest, choiceOf, errorDetail, noulOf, optionCodeIndex,
   parseModels, parseSnapResponse, parseUsage, redact, scoreLevelOf, subqRequest, subqRequestRetry,
 } from "./wire.js";
 
@@ -187,34 +187,7 @@ describe("parseSnapResponse variants", () => {
   });
 });
 
-describe("chat + models wire", () => {
-  it("builds an OpenAI-style body; JSON mode is the documented json_schema strict response_format, only when asked", () => {
-    const m = [{ role: "user" as const, content: "hi" }];
-    const schema = { type: "object", properties: { facts: { type: "string" } }, required: ["facts"], additionalProperties: false };
-    expect(buildChatRequest("subq-preview", m)).toEqual({ model: "subq-preview", messages: m, store: false });
-    expect(buildChatRequest("subq-preview", m, { schema: { name: "distill", schema }, maxTokens: 50, reasoningEffort: "low" })).toEqual({
-      model: "subq-preview",
-      messages: m,
-      response_format: { type: "json_schema", json_schema: { name: "distill", strict: true, schema } },
-      max_tokens: 50,
-      reasoning_effort: "low",
-      store: false,
-    });
-    expect(buildChatRequest("subq-preview", m, { schema: null, reasoningEffort: null })).toEqual({ model: "subq-preview", messages: m, store: false });
-    expect(buildChatRequest("subq-preview", m, { maxTokens: 50 })).not.toHaveProperty("max_completion_tokens");
-    expect(JSON.stringify(buildChatRequest("subq-preview", m, { schema: { name: "x", schema } }))).not.toContain("json_object");
-  });
-
-  it("parses string content, content parts, and OpenAI usage", () => {
-    const a = parseChatResponse({ choices: [{ message: { content: "hello" }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 } });
-    expect(a).toEqual({ text: "hello", usage: { input_tokens: 10, output_tokens: 4 }, finish_reason: "stop" });
-    expect(parseChatResponse({ choices: [{ message: { content: [{ type: "text", text: "a" }, { type: "text", text: "b" }] } }] }).text).toBe("ab");
-    expect(parseChatResponse({ choices: [{ text: "legacy" }] }).text).toBe("legacy");
-    expect(parseChatResponse({ choices: [{ message: { content: "x" } }] }).usage).toEqual({ input_tokens: 0, output_tokens: 0 });
-    expect(() => parseChatResponse({ choices: [] })).toThrow(/no message content/);
-    expect(() => parseChatResponse({ choices: [{ message: { content: null, reasoning_content: "hmm" }, finish_reason: "length" }] })).toThrow(/finish_reason length/);
-  });
-
+describe("models wire", () => {
   it("parses model ids from data[], models[] or a bare array", () => {
     expect(parseModels({ object: "list", data: [{ id: "subq-preview" }, { id: "subq-snap-preview" }] })).toEqual(["subq-preview", "subq-snap-preview"]);
     expect(parseModels({ models: [{ name: "a" }, "b"] })).toEqual(["a", "b"]);

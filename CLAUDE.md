@@ -30,7 +30,12 @@ Pushes to main auto-deploy (a deploy restarts the machine). Manufact autosuspend
 ## Stack
 mcp-use 2.10 `MCPServer` (Hono; `server.app` for HTTP routes) on Manufact · `@x402/mcp` 2.28 paywall on
 `notes_unlock` · Supabase (`supabase-js`, service role, server only) with an in-memory store fallback ·
-vitest. Shared contracts: `src/types.ts`.
+SubQ Snap (the only model: `agent_run` routing + the note audit) · vitest. Shared contracts: `src/types.ts`,
+runtime contracts `src/runtime/types.ts`.
+`agent_run` is decide-only (Ken 2026-10-20): task + the caller's tools in → map check → Snap scores the tools → chosen
+tools, scores, advisories and a next step out. The caller's LLM runs the tools and answers; Aze runs no tools and writes
+no answers or notes. Workers AI was removed the same day; don't bring a second model back without Ken. The SubQ chat
+client stays unwired until a SubQ language model reaches the key (see the SubQ gotcha below).
 
 ## Commands
 - Tests: `npm test` · typecheck: `npx tsc --noEmit` · local server: `npx tsx index.ts`
@@ -51,8 +56,13 @@ vitest. Shared contracts: `src/types.ts`.
 - Newer Supabase projects don't auto-grant table privileges: migration 0002 grants service_role explicitly.
 - SELFTEST_ON_BOOT=1 makes every deploy file a demo note and spend 0.05 test USDC; keep it 0 except when proving the loop.
 - Wallet keys live in `.env.wallets` (gitignored, TEST ONLY). Never mainnet.
-- SubQ: Ken's key has only `subq-snap-preview` (Snap: router + note audit). `subq-preview` is early access, so the
-  args/distill/note-writer tiers run on Workers AI until the key has it. Chat JSON mode is strict `json_schema`.
+- SubQ: the key has only `subq-snap-preview` (Snap: router + note audit), and Snap is the only model until further notice
+  (2026-10-22). The next SubQ language model is SubQ-Preview (`subq-preview`), expected before SubQ 1.1 Small; plan on
+  it, not on 1.1 Small. The SubQ chat client (`src/subq/chat.ts`, `SUBQ_CHAT_MODEL`) is kept UNWIRED on purpose: its
+  intended job is synthesizing filed notes into bottleneck reports. Turning it on = set `SUBQ_CHAT_MODEL=subq-preview`
+  (adds the `subq-chat` diag) and wire the report job. Chat JSON mode is strict `json_schema`.
+- `src/runtime/executors.ts`, `fetch.ts`, `mcp-client.ts` are no longer used by the pipeline (decide-only). They stay
+  until Ken decides whether to delete them; tests still cover them.
 - Inkbox `verifyWebhook` checks only the HMAC (no timestamp window) and THROWS on a wrong-length signature: enforce
   the 300 s window + request-id dedupe yourself, wrap in try/catch. Email sender matching is not authenticated; only
   A2A `caller` is. Never rotate signing keys on Ken's existing identities.
